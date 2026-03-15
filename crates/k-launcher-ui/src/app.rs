@@ -112,7 +112,12 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         .id(INPUT_ID.clone())
         .on_input(Message::QueryChanged)
         .padding(12)
-        .size(cfg.search_font_size);
+        .size(cfg.search_font_size)
+        .style(|theme, _status| {
+            let mut s = iced::widget::text_input::default(theme, iced::widget::text_input::Status::Active);
+            s.border = Border { color: Color::TRANSPARENT, width: 0.0, radius: 0.0.into() };
+            s
+        });
 
     let row_radius: f32 = cfg.row_radius;
     let title_size: f32 = cfg.title_size;

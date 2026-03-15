@@ -3,24 +3,13 @@ use serde::Deserialize;
 // RGBA: [r, g, b, a] where r/g/b are 0–255 as f32, a is 0.0–1.0
 pub type Rgba = [f32; 4];
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 #[serde(default)]
 pub struct Config {
     pub window: WindowCfg,
     pub appearance: AppearanceCfg,
     pub search: SearchCfg,
     pub plugins: PluginsCfg,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            window: WindowCfg::default(),
-            appearance: AppearanceCfg::default(),
-            search: SearchCfg::default(),
-            plugins: PluginsCfg::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -63,7 +52,7 @@ impl Default for AppearanceCfg {
     fn default() -> Self {
         Self {
             background_rgba: [20.0, 20.0, 30.0, 0.9],
-            border_rgba: [0.0, 183.0, 235.0, 1.0],
+            border_rgba: [229.0, 125.0, 33.0, 1.0],
             border_width: 1.0,
             border_radius: 8.0,
             search_font_size: 18.0,

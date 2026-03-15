@@ -1,5 +1,4 @@
 mod app;
-pub mod theme;
 
 use std::sync::Arc;
 

@@ -5,7 +5,7 @@ use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
 use k_launcher_os_bridge::WindowConfig;
 
 const BG: Color32 = Color32::from_rgba_premultiplied(20, 20, 30, 230);
-const BORDER_CYAN: Color32 = Color32::from_rgb(0, 183, 235);
+const BORDER_COLOR: Color32 = Color32::from_rgb(229, 125, 33);
 const SELECTED_BG: Color32 = Color32::from_rgba_premultiplied(0, 100, 140, 180);
 const DIM_TEXT: Color32 = Color32::from_rgb(180, 185, 200);
 
@@ -71,10 +71,8 @@ impl eframe::App for KLauncherApp {
                     self.selected = (self.selected + 1).min(len - 1);
                 }
             }
-            if i.key_pressed(Key::ArrowUp) {
-                if self.selected > 0 {
-                    self.selected -= 1;
-                }
+            if i.key_pressed(Key::ArrowUp) && self.selected > 0 {
+                self.selected -= 1;
             }
         });
 
@@ -96,7 +94,7 @@ impl eframe::App for KLauncherApp {
 
         let frame = egui::Frame::new()
             .fill(BG)
-            .stroke(egui::Stroke::new(1.0, BORDER_CYAN))
+            .stroke(egui::Stroke::new(1.0, BORDER_COLOR))
             .inner_margin(egui::Margin::same(12))
             .corner_radius(egui::CornerRadius::same(8));
 

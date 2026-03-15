@@ -1,5 +1,3 @@
-#![cfg(target_os = "linux")]
-
 use std::path::Path;
 
 use crate::{AppName, DesktopEntry, DesktopEntrySource, ExecCommand, IconPath};

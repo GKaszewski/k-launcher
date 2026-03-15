@@ -105,10 +105,9 @@ impl AppLauncher for UnixAppLauncher {
                         .args(["-selection", "clipboard"])
                         .stdin(Stdio::piped())
                         .spawn()
+                        && let Some(stdin) = child.stdin.as_mut()
                     {
-                        if let Some(stdin) = child.stdin.as_mut() {
-                            let _ = stdin.write_all(val.as_bytes());
-                        }
+                        let _ = stdin.write_all(val.as_bytes());
                     }
                 }
             }
