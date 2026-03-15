@@ -15,7 +15,7 @@ impl Default for CalcPlugin {
     }
 }
 
-fn preprocess(expr: &str) -> String {
+fn strip_numeric_separators(expr: &str) -> String {
     expr.replace('_', "")
 }
 
@@ -39,7 +39,7 @@ impl Plugin for CalcPlugin {
             return vec![];
         }
         let raw = query.strip_prefix('=').unwrap_or(query);
-        let expr_owned = preprocess(raw);
+        let expr_owned = strip_numeric_separators(raw);
         let expr = expr_owned.as_str();
         match evalexpr::eval_number(expr) {
             Ok(n) if n.is_finite() => {
@@ -92,5 +92,13 @@ mod tests {
         let p = CalcPlugin::new();
         let results = p.search("1_000 * 2").await;
         assert_eq!(results[0].title.as_str(), "= 2000");
+        assert_eq!(
+            results[0].description.as_deref(),
+            Some("1000 * 2 · Enter to copy")
+        );
+        assert!(matches!(
+            &results[0].action,
+            LaunchAction::CopyToClipboard(v) if v == "2000"
+        ));
     }
 }
