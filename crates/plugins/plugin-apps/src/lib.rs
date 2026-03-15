@@ -5,7 +5,7 @@ pub mod linux;
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 use crate::frecency::FrecencyStore;
 
@@ -144,7 +144,7 @@ pub(crate) fn humanize_category(s: &str) -> String {
 
 #[async_trait]
 impl Plugin for AppsPlugin {
-    fn name(&self) -> PluginName {
+    fn name(&self) -> &str {
         "apps"
     }
 

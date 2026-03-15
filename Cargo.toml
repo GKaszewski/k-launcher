@@ -4,6 +4,7 @@ members = [
     "crates/k-launcher-config",
     "crates/k-launcher-kernel",
     "crates/k-launcher-os-bridge",
+    "crates/k-launcher-plugin-host",
     "crates/k-launcher-ui",
     "crates/plugins/plugin-apps",
     "crates/plugins/plugin-calc",
@@ -19,6 +20,7 @@ dirs = "5.0"
 futures = "0.3"
 iced = { version = "0.14", features = ["image", "svg", "tokio", "tiny-skia"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 toml = "0.8"
 tracing = "0.1"

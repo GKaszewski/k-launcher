@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use k_launcher_kernel::Kernel;
 use k_launcher_os_bridge::UnixAppLauncher;
+use k_launcher_plugin_host::ExternalPlugin;
 use plugin_apps::{AppsPlugin, frecency::FrecencyStore};
 #[cfg(target_os = "linux")]
 use plugin_apps::linux::FsDesktopEntrySource;
@@ -20,6 +21,9 @@ fn main() -> iced::Result {
     if cfg.plugins.files { plugins.push(Arc::new(FilesPlugin::new())); }
     if cfg.plugins.apps  {
         plugins.push(Arc::new(AppsPlugin::new(FsDesktopEntrySource::new(), frecency)));
+    }
+    for ext in &cfg.plugins.external {
+        plugins.push(Arc::new(ExternalPlugin::new(&ext.name, &ext.path, ext.args.clone())));
     }
 
     let kernel: Arc<dyn k_launcher_kernel::SearchEngine> =

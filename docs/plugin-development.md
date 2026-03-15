@@ -1,10 +1,102 @@
 # Plugin Development
 
-Plugins are Rust crates that implement the `Plugin` trait from `k-launcher-kernel`. They run concurrently — the kernel fans out every query to all enabled plugins and merges results by score.
+Plugins are queried concurrently — the kernel fans out every search to all enabled plugins and merges results by score.
 
-> Note: plugins are compiled into the binary at build time. There is no dynamic loading support yet.
+There are two kinds of plugins:
 
-## Step-by-Step
+- **External plugins** — executables that speak a JSON protocol over stdin/stdout. Any language, no compilation required. Recommended for community plugins.
+- **Built-in plugins** — Rust crates compiled into the binary. For performance-critical or tightly integrated plugins.
+
+---
+
+## External Plugins
+
+An external plugin is any executable that:
+
+1. Reads a JSON object from stdin (one line per query)
+2. Writes a JSON array of results to stdout (one line per response)
+
+### Protocol
+
+**Input** (one line, newline-terminated):
+```json
+{"query": "firefox"}
+```
+
+**Output** (one line, newline-terminated):
+```json
+[{"id":"app-firefox","title":"Firefox","score":80,"description":"Web Browser","action":{"type":"SpawnProcess","cmd":"firefox"}}]
+```
+
+The process is kept alive between queries — do **not** exit after each response.
+
+### Action types
+
+| `"type"` | Extra fields | Behavior |
+|----------|-------------|---------|
+| `SpawnProcess` | `"cmd"` | Launch process directly |
+| `CopyToClipboard` | `"text"` | Copy text to clipboard |
+| `OpenPath` | `"path"` | Open file/dir with xdg-open |
+
+### Optional result fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Secondary line shown below title |
+| `icon` | `string` | Icon path (future use) |
+
+### Enabling an external plugin
+
+In `~/.config/k-launcher/config.toml`:
+
+```toml
+[[plugins.external]]
+name = "my-plugin"
+path = "/usr/lib/k-launcher/plugins/my-plugin"
+args = []        # optional
+```
+
+Multiple `[[plugins.external]]` blocks are supported.
+
+### Example: shell plugin
+
+```bash
+#!/usr/bin/env bash
+# A plugin that greets the user.
+while IFS= read -r line; do
+    query=$(echo "$line" | python3 -c "import sys,json; print(json.load(sys.stdin)['query'])")
+    if [[ "$query" == hello* ]]; then
+        echo '[{"id":"greet","title":"Hello, World!","score":80,"action":{"type":"CopyToClipboard","text":"Hello, World!"}}]'
+    else
+        echo '[]'
+    fi
+done
+```
+
+### Example: Python plugin
+
+```python
+#!/usr/bin/env python3
+import sys, json
+
+for line in sys.stdin:
+    query = json.loads(line)["query"]
+    results = []
+    if query.startswith("hello"):
+        results.append({
+            "id": "greet",
+            "title": "Hello, World!",
+            "score": 80,
+            "action": {"type": "CopyToClipboard", "text": "Hello, World!"},
+        })
+    print(json.dumps(results), flush=True)
+```
+
+---
+
+## Built-in Plugins (compiled-in)
+
+Built-in plugins implement the `Plugin` trait from `k-launcher-kernel` as Rust crates compiled into the binary.
 
 ### 1. Create a new crate in the workspace
 
@@ -38,9 +130,7 @@ async-trait = "0.1"
 
 ```rust
 use async_trait::async_trait;
-use k_launcher_kernel::{
-    LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult,
-};
+use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct HelloPlugin;
 
@@ -52,7 +142,7 @@ impl HelloPlugin {
 
 #[async_trait]
 impl Plugin for HelloPlugin {
-    fn name(&self) -> PluginName {
+    fn name(&self) -> &str {
         "hello"
     }
 

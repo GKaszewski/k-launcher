@@ -20,6 +20,7 @@ egui = ["dep:k-launcher-ui-egui"]
 iced = { workspace = true }
 k-launcher-config = { path = "../k-launcher-config" }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
+k-launcher-plugin-host = { path = "../k-launcher-plugin-host" }
 k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
 k-launcher-ui = { path = "../k-launcher-ui" }
 k-launcher-ui-egui = { path = "../k-launcher-ui-egui", optional = true }

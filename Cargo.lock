@@ -2219,6 +2219,7 @@ dependencies = [
  "k-launcher-config",
  "k-launcher-kernel",
  "k-launcher-os-bridge",
+ "k-launcher-plugin-host",
  "k-launcher-ui",
  "k-launcher-ui-egui",
  "plugin-apps",
@@ -2254,6 +2255,18 @@ dependencies = [
  "k-launcher-config",
  "k-launcher-kernel",
  "libc",
+]
+
+[[package]]
+name = "k-launcher-plugin-host"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "k-launcher-kernel",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2532,6 +2545,17 @@ checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
 dependencies = [
  "adler2",
  "simd-adler32",
+]
+
+[[package]]
+name = "mio"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a69bcab0ad47271a0234d9422b131806bf3968021e5dc9328caf2d4cd58557fc"
+dependencies = [
+ "libc",
+ "wasi",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4344,8 +4368,13 @@ version = "1.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27ad5e34374e03cfffefc301becb44e9dc3c17584f414349ebe29ed26661822d"
 dependencies = [
+ "bytes",
+ "libc",
+ "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "tokio-macros",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

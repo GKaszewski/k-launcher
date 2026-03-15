@@ -33,6 +33,19 @@ cargo build --release
 | `>` prefix        | Shell  | `> echo hello` |
 | `/` or `~/`       | Files  | `~/Documents`  |
 
+## External Plugins
+
+Drop in community plugins — any language, no recompilation. Plugins are executables that communicate over stdin/stdout JSON:
+
+```toml
+# ~/.config/k-launcher/config.toml
+[[plugins.external]]
+name = "my-plugin"
+path = "/usr/lib/k-launcher/plugins/my-plugin"
+```
+
+See [Plugin Development](docs/plugin-development.md) for the full protocol.
+
 ## Docs
 
 - [Installation](docs/install.md)

@@ -3,8 +3,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures::future::join_all;
 
-pub type PluginName = &'static str;
-
 // --- Newtypes ---
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -86,7 +84,7 @@ impl std::fmt::Debug for SearchResult {
 
 #[async_trait]
 pub trait Plugin: Send + Sync {
-    fn name(&self) -> PluginName;
+    fn name(&self) -> &str;
     async fn search(&self, query: &str) -> Vec<SearchResult>;
 }
 
@@ -144,7 +142,7 @@ mod tests {
 
     #[async_trait]
     impl Plugin for MockPlugin {
-        fn name(&self) -> PluginName {
+        fn name(&self) -> &str {
             "mock"
         }
 

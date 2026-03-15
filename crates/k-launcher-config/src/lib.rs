@@ -76,6 +76,14 @@ impl Default for SearchCfg {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ExternalPluginCfg {
+    pub name: String,
+    pub path: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct PluginsCfg {
@@ -83,6 +91,7 @@ pub struct PluginsCfg {
     pub cmd: bool,
     pub files: bool,
     pub apps: bool,
+    pub external: Vec<ExternalPluginCfg>,
 }
 
 impl Default for PluginsCfg {
@@ -92,6 +101,7 @@ impl Default for PluginsCfg {
             cmd: true,
             files: true,
             apps: true,
+            external: vec![],
         }
     }
 }

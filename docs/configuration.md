@@ -34,6 +34,12 @@ calc  = true   # math expression evaluator
 cmd   = true   # shell command runner (> prefix)
 files = true   # filesystem browser (/ or ~/ prefix)
 apps  = true   # XDG application launcher
+
+# External (dynamic) plugins — repeat block for each plugin
+[[plugins.external]]
+name = "my-plugin"              # display name / identifier
+path = "/path/to/my-plugin"    # path to executable
+args = []                       # optional extra arguments
 ```
 
 ## RGBA Format

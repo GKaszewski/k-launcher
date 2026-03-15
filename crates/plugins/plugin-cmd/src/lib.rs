@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct CmdPlugin;
 
@@ -17,7 +17,7 @@ impl Default for CmdPlugin {
 
 #[async_trait]
 impl Plugin for CmdPlugin {
-    fn name(&self) -> PluginName {
+    fn name(&self) -> &str {
         "cmd"
     }
 

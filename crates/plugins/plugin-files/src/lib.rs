@@ -3,7 +3,7 @@ mod platform;
 use std::path::Path;
 
 use async_trait::async_trait;
-use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct FilesPlugin;
 
@@ -32,7 +32,7 @@ fn expand_query(query: &str) -> Option<String> {
 
 #[async_trait]
 impl Plugin for FilesPlugin {
-    fn name(&self) -> PluginName {
+    fn name(&self) -> &str {
         "files"
     }
 
