@@ -1,5 +1,3 @@
-mod client;
-
 use std::sync::Arc;
 
 use k_launcher_kernel::Kernel;
@@ -14,15 +12,6 @@ use plugin_files::FilesPlugin;
 
 fn main() {
     tracing_subscriber::fmt::init();
-
-    let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(|s| s.as_str()) == Some("show") {
-        if let Err(e) = client::send_show() {
-            eprintln!("error: failed to send show command: {e}");
-            std::process::exit(1);
-        }
-        return;
-    }
 
     if let Err(e) = run_ui() {
         eprintln!("error: UI: {e}");
