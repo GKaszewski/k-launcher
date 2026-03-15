@@ -9,7 +9,7 @@ use iced::{
 
 use k_launcher_kernel::{Kernel, SearchResult};
 
-use crate::theme::AeroColors;
+use crate::theme;
 
 static INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
     std::sync::LazyLock::new(|| iced::widget::Id::new("search"));
@@ -89,7 +89,7 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
 }
 
 fn view(state: &KLauncherApp) -> Element<'_, Message> {
-    let colors = AeroColors::standard();
+    let colors = &*theme::AERO;
 
     let search_bar = text_input("Search...", &state.query)
         .id(INPUT_ID.clone())

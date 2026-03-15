@@ -9,6 +9,9 @@ pub struct AeroColors {
     pub border_cyan: Color,
 }
 
+pub static AERO: std::sync::LazyLock<AeroColors> =
+    std::sync::LazyLock::new(AeroColors::standard);
+
 impl AeroColors {
     pub fn standard() -> Self {
         Self {

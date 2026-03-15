@@ -56,15 +56,55 @@ pub trait DesktopEntrySource: Send + Sync {
     fn entries(&self) -> Vec<DesktopEntry>;
 }
 
-// --- Plugin ---
+// --- Cached entry (pre-computed at construction) ---
 
-pub struct AppsPlugin<S: DesktopEntrySource> {
-    source: S,
+struct CachedEntry {
+    name: AppName,
+    name_lc: String,
+    icon: Option<String>,
+    on_execute: Arc<dyn Fn() + Send + Sync>,
 }
 
-impl<S: DesktopEntrySource> AppsPlugin<S> {
-    pub fn new(source: S) -> Self {
-        Self { source }
+// --- Plugin ---
+
+pub struct AppsPlugin {
+    entries: Vec<CachedEntry>,
+}
+
+impl AppsPlugin {
+    pub fn new(source: impl DesktopEntrySource) -> Self {
+        let entries = source
+            .entries()
+            .into_iter()
+            .map(|e| {
+                let name_lc = e.name.as_str().to_lowercase();
+                let icon = e.icon.as_ref().and_then(|p| resolve_icon_path(p.as_str()));
+                let exec = e.exec.clone();
+                CachedEntry {
+                    name_lc,
+                    icon,
+                    on_execute: Arc::new(move || {
+                        let parts: Vec<&str> = exec.as_str().split_whitespace().collect();
+                        if let Some((cmd, args)) = parts.split_first() {
+                            let _ = unsafe {
+                                Command::new(cmd)
+                                    .args(args)
+                                    .stdin(Stdio::null())
+                                    .stdout(Stdio::null())
+                                    .stderr(Stdio::null())
+                                    .pre_exec(|| {
+                                        libc::setsid();
+                                        Ok(())
+                                    })
+                                    .spawn()
+                            };
+                        }
+                    }),
+                    name: e.name,
+                }
+            })
+            .collect();
+        Self { entries }
     }
 }
 
@@ -81,14 +121,12 @@ fn resolve_icon_path(name: &str) -> Option<String> {
     candidates.into_iter().find(|p| Path::new(p).exists())
 }
 
-fn score_match(name: &str, query: &str) -> Option<u32> {
-    let name_lc = name.to_lowercase();
-    let query_lc = query.to_lowercase();
+fn score_match(name_lc: &str, query_lc: &str) -> Option<u32> {
     if name_lc == query_lc {
         Some(100)
-    } else if name_lc.starts_with(&query_lc) {
+    } else if name_lc.starts_with(query_lc) {
         Some(80)
-    } else if name_lc.contains(&query_lc) {
+    } else if name_lc.contains(query_lc) {
         Some(60)
     } else {
         None
@@ -96,7 +134,7 @@ fn score_match(name: &str, query: &str) -> Option<u32> {
 }
 
 #[async_trait]
-impl<S: DesktopEntrySource> Plugin for AppsPlugin<S> {
+impl Plugin for AppsPlugin {
     fn name(&self) -> PluginName {
         "apps"
     }
@@ -105,34 +143,17 @@ impl<S: DesktopEntrySource> Plugin for AppsPlugin<S> {
         if query.is_empty() {
             return vec![];
         }
-        self.source
-            .entries()
-            .into_iter()
-            .filter_map(|entry| {
-                score_match(entry.name.as_str(), query).map(|score| {
-                    let exec = entry.exec.clone();
-                    let icon = entry.icon.as_ref().and_then(|p| resolve_icon_path(p.as_str()));
-                    SearchResult {
-                        id: ResultId::new(format!("app-{}", entry.name.as_str())),
-                        title: ResultTitle::new(entry.name.as_str()),
-                        description: None,
-                        icon,
-                        score: Score::new(score),
-                        on_execute: Arc::new(move || {
-                            let parts: Vec<&str> = exec.as_str().split_whitespace().collect();
-                            if let Some((cmd, args)) = parts.split_first() {
-                                let _ = unsafe {
-                                    Command::new(cmd)
-                                        .args(args)
-                                        .stdin(Stdio::null())
-                                        .stdout(Stdio::null())
-                                        .stderr(Stdio::null())
-                                        .pre_exec(|| { libc::setsid(); Ok(()) })
-                                        .spawn()
-                                };
-                            }
-                        }),
-                    }
+        let query_lc = query.to_lowercase();
+        self.entries
+            .iter()
+            .filter_map(|e| {
+                score_match(&e.name_lc, &query_lc).map(|score| SearchResult {
+                    id: ResultId::new(format!("app-{}", e.name.as_str())),
+                    title: ResultTitle::new(e.name.as_str()),
+                    description: None,
+                    icon: e.icon.clone(),
+                    score: Score::new(score),
+                    on_execute: Arc::clone(&e.on_execute),
                 })
             })
             .collect()
@@ -188,7 +209,7 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
     let mut name: Option<String> = None;
     let mut exec: Option<String> = None;
     let mut icon: Option<String> = None;
-    let mut entry_type: Option<String> = None;
+    let mut is_application = false;
     let mut no_display = false;
 
     for line in content.lines() {
@@ -209,22 +230,27 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
                 "Name" if name.is_none() => name = Some(value.trim().to_string()),
                 "Exec" if exec.is_none() => exec = Some(value.trim().to_string()),
                 "Icon" if icon.is_none() => icon = Some(value.trim().to_string()),
-                "Type" if entry_type.is_none() => entry_type = Some(value.trim().to_string()),
+                "Type" if !is_application => is_application = value.trim() == "Application",
                 "NoDisplay" => no_display = value.trim().eq_ignore_ascii_case("true"),
                 _ => {}
             }
         }
     }
 
-    if entry_type.as_deref() != Some("Application") || no_display {
+    if !is_application || no_display {
         return None;
     }
 
     let exec_clean: String = exec?
         .split_whitespace()
         .filter(|s| !s.starts_with('%'))
-        .collect::<Vec<_>>()
-        .join(" ");
+        .fold(String::new(), |mut acc, s| {
+            if !acc.is_empty() {
+                acc.push(' ');
+            }
+            acc.push_str(s);
+            acc
+        });
 
     Some(DesktopEntry {
         name: AppName::new(name?),
