@@ -11,13 +11,13 @@ pub struct WindowConfig {
 }
 
 impl WindowConfig {
-    pub fn launcher() -> Self {
+    pub fn from_cfg(w: &k_launcher_config::WindowCfg) -> Self {
         Self {
-            width: 600.0,
-            height: 400.0,
-            decorations: false,
-            transparent: true,
-            resizable: false,
+            width: w.width,
+            height: w.height,
+            decorations: w.decorations,
+            transparent: w.transparent,
+            resizable: w.resizable,
         }
     }
 }

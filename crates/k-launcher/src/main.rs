@@ -10,13 +10,20 @@ use plugin_cmd::CmdPlugin;
 use plugin_files::FilesPlugin;
 
 fn main() -> iced::Result {
+    let cfg = k_launcher_config::load();
     let launcher = Arc::new(UnixAppLauncher::new());
     let frecency = FrecencyStore::load();
-    let kernel: Arc<dyn k_launcher_kernel::SearchEngine> = Arc::new(Kernel::new(vec![
-        Arc::new(CmdPlugin::new()),
-        Arc::new(CalcPlugin::new()),
-        Arc::new(FilesPlugin::new()),
-        Arc::new(AppsPlugin::new(FsDesktopEntrySource::new(), frecency)),
-    ]));
-    k_launcher_ui::run(kernel, launcher)
+
+    let mut plugins: Vec<Arc<dyn k_launcher_kernel::Plugin>> = vec![];
+    if cfg.plugins.cmd   { plugins.push(Arc::new(CmdPlugin::new())); }
+    if cfg.plugins.calc  { plugins.push(Arc::new(CalcPlugin::new())); }
+    if cfg.plugins.files { plugins.push(Arc::new(FilesPlugin::new())); }
+    if cfg.plugins.apps  {
+        plugins.push(Arc::new(AppsPlugin::new(FsDesktopEntrySource::new(), frecency)));
+    }
+
+    let kernel: Arc<dyn k_launcher_kernel::SearchEngine> =
+        Arc::new(Kernel::new(plugins, cfg.search.max_results));
+
+    k_launcher_ui::run(kernel, launcher, &cfg.window, cfg.appearance)
 }

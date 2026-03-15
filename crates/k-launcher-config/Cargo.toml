@@ -1,0 +1,13 @@
+[package]
+name = "k-launcher-config"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "k_launcher_config"
+path = "src/lib.rs"
+
+[dependencies]
+dirs = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }

@@ -101,11 +101,12 @@ pub trait SearchEngine: Send + Sync {
 
 pub struct Kernel {
     plugins: Vec<Arc<dyn Plugin>>,
+    max_results: usize,
 }
 
 impl Kernel {
-    pub fn new(plugins: Vec<Arc<dyn Plugin>>) -> Self {
-        Self { plugins }
+    pub fn new(plugins: Vec<Arc<dyn Plugin>>, max_results: usize) -> Self {
+        Self { plugins, max_results }
     }
 
     pub async fn search(&self, query: &str) -> Vec<SearchResult> {
@@ -113,7 +114,7 @@ impl Kernel {
         let nested: Vec<Vec<SearchResult>> = join_all(futures).await;
         let mut flat: Vec<SearchResult> = nested.into_iter().flatten().collect();
         flat.sort_by(|a, b| b.score.cmp(&a.score));
-        flat.truncate(8);
+        flat.truncate(self.max_results);
         flat
     }
 }
@@ -181,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn empty_kernel_returns_empty() {
-        let k = Kernel::new(vec![]);
+        let k = Kernel::new(vec![], 8);
         assert!(k.search("x").await.is_empty());
     }
 
@@ -192,10 +193,26 @@ mod tests {
             ("higher", 10),
             ("middle", 7),
         ]));
-        let k = Kernel::new(vec![plugin]);
+        let k = Kernel::new(vec![plugin], 8);
         let results = k.search("q").await;
         assert_eq!(results[0].score.value(), 10);
         assert_eq!(results[1].score.value(), 7);
         assert_eq!(results[2].score.value(), 5);
+    }
+
+    #[tokio::test]
+    async fn kernel_truncates_at_max_results() {
+        let plugin = Arc::new(MockPlugin::returns(vec![
+            ("a", 10),
+            ("b", 9),
+            ("c", 8),
+            ("d", 7),
+            ("e", 6),
+        ]));
+        let k = Kernel::new(vec![plugin], 3);
+        let results = k.search("q").await;
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].score.value(), 10);
+        assert_eq!(results[2].score.value(), 8);
     }
 }

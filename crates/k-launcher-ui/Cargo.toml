@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 iced = { workspace = true }
+k-launcher-config = { path = "../k-launcher-config" }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
 k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
 tokio = { workspace = true }

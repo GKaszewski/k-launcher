@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(CalcPlugin::new()),
         Arc::new(FilesPlugin::new()),
         Arc::new(AppsPlugin::new(FsDesktopEntrySource::new(), frecency)),
-    ]));
+    ], 8));
     k_launcher_ui_egui::run(kernel, launcher)?;
     Ok(())
 }

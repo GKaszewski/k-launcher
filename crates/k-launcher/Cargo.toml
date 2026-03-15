@@ -14,6 +14,7 @@ path = "src/main_egui.rs"
 
 [dependencies]
 iced = { workspace = true }
+k-launcher-config = { path = "../k-launcher-config" }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
 k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
 k-launcher-ui = { path = "../k-launcher-ui" }

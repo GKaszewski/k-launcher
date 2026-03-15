@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+k-launcher-config = { path = "../k-launcher-config" }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
 libc = "0.2"

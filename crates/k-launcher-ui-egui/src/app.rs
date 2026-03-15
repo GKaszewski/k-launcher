@@ -160,7 +160,7 @@ pub fn run(
     engine: Arc<dyn SearchEngine>,
     launcher: Arc<dyn AppLauncher>,
 ) -> Result<(), eframe::Error> {
-    let wc = WindowConfig::launcher();
+    let wc = WindowConfig::from_cfg(&k_launcher_config::WindowCfg::default());
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let handle = rt.handle().clone();
 

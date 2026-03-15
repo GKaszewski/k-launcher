@@ -8,13 +8,16 @@ use iced::{
     window,
 };
 
+use k_launcher_config::AppearanceCfg;
 use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
 use k_launcher_os_bridge::WindowConfig;
 
-use crate::theme;
-
 static INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
     std::sync::LazyLock::new(|| iced::widget::Id::new("search"));
+
+fn rgba(c: &[f32; 4]) -> Color {
+    Color::from_rgba8(c[0] as u8, c[1] as u8, c[2] as u8, c[3])
+}
 
 pub struct KLauncherApp {
     engine: Arc<dyn SearchEngine>,
@@ -22,16 +25,22 @@ pub struct KLauncherApp {
     query: String,
     results: Arc<Vec<SearchResult>>,
     selected: usize,
+    cfg: AppearanceCfg,
 }
 
 impl KLauncherApp {
-    fn new(engine: Arc<dyn SearchEngine>, launcher: Arc<dyn AppLauncher>) -> Self {
+    fn new(
+        engine: Arc<dyn SearchEngine>,
+        launcher: Arc<dyn AppLauncher>,
+        cfg: AppearanceCfg,
+    ) -> Self {
         Self {
             engine,
             launcher,
             query: String::new(),
             results: Arc::new(vec![]),
             selected: 0,
+            cfg,
         }
     }
 }
@@ -96,13 +105,18 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
 }
 
 fn view(state: &KLauncherApp) -> Element<'_, Message> {
-    let colors = &*theme::AERO;
+    let cfg = &state.cfg;
+    let border_color = rgba(&cfg.border_rgba);
 
-    let search_bar = text_input("Search...", &state.query)
+    let search_bar = text_input(&cfg.placeholder, &state.query)
         .id(INPUT_ID.clone())
         .on_input(Message::QueryChanged)
         .padding(12)
-        .size(18);
+        .size(cfg.search_font_size);
+
+    let row_radius: f32 = cfg.row_radius;
+    let title_size: f32 = cfg.title_size;
+    let desc_size: f32 = cfg.desc_size;
 
     let result_rows: Vec<Element<'_, Message>> = state
         .results
@@ -111,7 +125,7 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         .map(|(i, result)| {
             let is_selected = i == state.selected;
             let bg_color = if is_selected {
-                colors.border_cyan
+                border_color
             } else {
                 Color::from_rgba8(255, 255, 255, 0.07)
             };
@@ -124,12 +138,12 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
             };
             let title_col: Element<'_, Message> = if let Some(desc) = &result.description {
                 column![
-                    text(result.title.as_str()).size(15),
-                    text(desc).size(12).color(Color::from_rgba8(210, 215, 230, 1.0)),
+                    text(result.title.as_str()).size(title_size),
+                    text(desc).size(desc_size).color(Color::from_rgba8(210, 215, 230, 1.0)),
                 ]
                 .into()
             } else {
-                text(result.title.as_str()).size(15).into()
+                text(result.title.as_str()).size(title_size).into()
             };
             container(
                 row![icon_el, title_col]
@@ -143,7 +157,7 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
                     border: Border {
                         color: Color::TRANSPARENT,
                         width: 0.0,
-                        radius: 4.0.into(),
+                        radius: row_radius.into(),
                     },
                     ..Default::default()
                 })
@@ -155,7 +169,7 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         scrollable(
             container(
                 text("No results")
-                    .size(15)
+                    .size(title_size)
                     .color(Color::from_rgba8(180, 180, 200, 0.5)),
             )
             .width(Length::Fill)
@@ -173,17 +187,19 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         .width(Length::Fill)
         .height(Length::Fill);
 
+    let bg_color = rgba(&cfg.background_rgba);
+    let border_width = cfg.border_width;
+    let border_radius = cfg.border_radius;
+
     container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(|_theme| container::Style {
-            background: Some(iced::Background::Color(Color::from_rgba8(
-                20, 20, 30, 0.9,
-            ))),
+        .style(move |_theme| container::Style {
+            background: Some(iced::Background::Color(bg_color)),
             border: Border {
-                color: theme::AERO.border_cyan,
-                width: 1.0,
-                radius: 8.0.into(),
+                color: border_color,
+                width: border_width,
+                radius: border_radius.into(),
             },
             ..Default::default()
         })
@@ -197,11 +213,16 @@ fn subscription(_state: &KLauncherApp) -> Subscription<Message> {
     })
 }
 
-pub fn run(engine: Arc<dyn SearchEngine>, launcher: Arc<dyn AppLauncher>) -> iced::Result {
-    let wc = WindowConfig::launcher();
+pub fn run(
+    engine: Arc<dyn SearchEngine>,
+    launcher: Arc<dyn AppLauncher>,
+    window_cfg: &k_launcher_config::WindowCfg,
+    appearance_cfg: AppearanceCfg,
+) -> iced::Result {
+    let wc = WindowConfig::from_cfg(window_cfg);
     iced::application(
         move || {
-            let app = KLauncherApp::new(engine.clone(), launcher.clone());
+            let app = KLauncherApp::new(engine.clone(), launcher.clone(), appearance_cfg.clone());
             let focus = iced::widget::operation::focus(INPUT_ID.clone());
             (app, focus)
         },
