@@ -1,9 +1,19 @@
 [workspace]
-members = ["crates/k-launcher-kernel", "crates/k-launcher-os-bridge", "crates/k-launcher-ui", "crates/plugins/plugin-apps", "crates/plugins/plugin-calc", "crates/plugins/plugin-files"]
+members = [
+    "crates/k-launcher",
+    "crates/k-launcher-kernel",
+    "crates/k-launcher-os-bridge",
+    "crates/k-launcher-ui",
+    "crates/plugins/plugin-apps",
+    "crates/plugins/plugin-calc",
+    "crates/plugins/plugin-files",
+]
 resolver = "2"
 
 [workspace.dependencies]
-iced = { version = "0.14", features = ["canvas", "tokio", "wgpu"] }
-tokio = { version = "1.35", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+iced = { version = "0.14", features = ["canvas", "image", "svg", "tokio", "wgpu"] }
 serde = { version = "1.0", features = ["derive"] }
-tracing = "0.1" # For high-performance logging
+tokio = { version = "1.35", features = ["full"] }
+tracing = "0.1"

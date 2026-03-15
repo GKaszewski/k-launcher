@@ -1,14 +1,20 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+/// Configuration for the launcher window.
+pub struct WindowConfig {
+    pub width: f32,
+    pub height: f32,
+    pub decorations: bool,
+    pub transparent: bool,
+    pub resizable: bool,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl WindowConfig {
+    pub fn launcher() -> Self {
+        Self {
+            width: 600.0,
+            height: 400.0,
+            decorations: false,
+            transparent: true,
+            resizable: false,
+        }
     }
 }

@@ -3,4 +3,11 @@ name = "k-launcher-ui"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "k_launcher_ui"
+path = "src/lib.rs"
+
 [dependencies]
+iced = { workspace = true }
+k-launcher-kernel = { path = "../k-launcher-kernel" }
+tokio = { workspace = true }

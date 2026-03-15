@@ -1,0 +1,17 @@
+[package]
+name = "k-launcher"
+version = "0.1.0"
+edition = "2024"
+default-run = "k-launcher"
+
+[[bin]]
+name = "k-launcher"
+path = "src/main.rs"
+
+[dependencies]
+iced = { workspace = true }
+k-launcher-kernel = { path = "../k-launcher-kernel" }
+k-launcher-ui = { path = "../k-launcher-ui" }
+plugin-apps = { path = "../plugins/plugin-apps" }
+plugin-calc = { path = "../plugins/plugin-calc" }
+tokio = { workspace = true }

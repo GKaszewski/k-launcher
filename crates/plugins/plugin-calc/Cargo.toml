@@ -3,4 +3,16 @@ name = "plugin-calc"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "plugin_calc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "plugin-calc"
+path = "src/main.rs"
+
 [dependencies]
+async-trait = { workspace = true }
+evalexpr = "11"
+k-launcher-kernel = { path = "../../k-launcher-kernel" }
+tokio = { workspace = true }
