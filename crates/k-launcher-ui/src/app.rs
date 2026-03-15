@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use iced::{
     Color, Element, Length, Size, Subscription, Task,
-    keyboard::{self, Event as KeyEvent, Key, key::Named},
+    event,
+    keyboard::{Event as KeyEvent, Key, key::Named},
     widget::{column, container, image, row, scrollable, svg, text, text_input, Space},
     window,
 };
@@ -152,7 +153,10 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
 }
 
 fn subscription(_state: &KLauncherApp) -> Subscription<Message> {
-    keyboard::listen().map(Message::KeyPressed)
+    event::listen_with(|ev, _status, _id| match ev {
+        iced::Event::Keyboard(ke) => Some(Message::KeyPressed(ke)),
+        _ => None,
+    })
 }
 
 pub fn run(kernel: Arc<Kernel>) -> iced::Result {
