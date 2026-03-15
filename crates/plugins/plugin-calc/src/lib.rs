@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use evalexpr::eval_number_with_context;
 use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
+use std::sync::LazyLock;
 
 pub struct CalcPlugin;
 
@@ -22,7 +23,7 @@ fn strip_numeric_separators(expr: &str) -> String {
 
 const MATH_FNS: &[&str] = &[
     "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-    "log", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
+    "ln", "log", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
 ];
 
 fn should_eval(query: &str) -> bool {
@@ -35,30 +36,31 @@ fn should_eval(query: &str) -> bool {
         || MATH_FNS.iter().any(|f| q.starts_with(f))
 }
 
-fn math_context() -> evalexpr::HashMapContext<evalexpr::DefaultNumericTypes> {
-    use evalexpr::*;
-    let ctx: HashMapContext<DefaultNumericTypes> = context_map! {
-        "pi" => float std::f64::consts::PI,
-        "e"  => float std::f64::consts::E,
-        "sqrt"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sqrt()))),
-        "sin"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sin()))),
-        "cos"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.cos()))),
-        "tan"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.tan()))),
-        "asin"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.asin()))),
-        "acos"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.acos()))),
-        "atan"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.atan()))),
-        "log"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ln()))),
-        "log2"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log2()))),
-        "log10" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
-        "exp"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.exp()))),
-        "abs"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.abs()))),
-        "ceil"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ceil()))),
-        "floor" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.floor()))),
-        "round" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.round())))
-    }
-    .unwrap();
-    ctx
-}
+static MATH_CTX: LazyLock<evalexpr::HashMapContext<evalexpr::DefaultNumericTypes>> =
+    LazyLock::new(|| {
+        use evalexpr::*;
+        context_map! {
+            "pi" => float std::f64::consts::PI,
+            "e"  => float std::f64::consts::E,
+            "sqrt"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sqrt()))),
+            "sin"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sin()))),
+            "cos"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.cos()))),
+            "tan"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.tan()))),
+            "asin"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.asin()))),
+            "acos"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.acos()))),
+            "atan"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.atan()))),
+            "ln"    => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ln()))),
+            "log"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
+            "log2"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log2()))),
+            "log10" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
+            "exp"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.exp()))),
+            "abs"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.abs()))),
+            "ceil"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ceil()))),
+            "floor" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.floor()))),
+            "round" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.round())))
+        }
+        .expect("static math context must be valid")
+    });
 
 #[async_trait]
 impl Plugin for CalcPlugin {
@@ -73,7 +75,7 @@ impl Plugin for CalcPlugin {
         let raw = query.strip_prefix('=').unwrap_or(query);
         let expr_owned = strip_numeric_separators(raw);
         let expr = expr_owned.as_str();
-        match eval_number_with_context(expr, &math_context()) {
+        match eval_number_with_context(expr, &*MATH_CTX) {
             Ok(n) if n.is_finite() => {
                 let value_str = if n.fract() == 0.0 {
                     format!("{}", n as i64)
@@ -130,8 +132,10 @@ mod tests {
     async fn calc_sin_pi() {
         let p = CalcPlugin::new();
         let results = p.search("sin(pi)").await;
-        // sin(pi) ≈ 0, but floating point; result should not be empty
         assert!(!results.is_empty());
+        let title = results[0].title.as_str();
+        let val: f64 = title.trim_start_matches("= ").parse().unwrap();
+        assert!(val.abs() < 1e-10, "sin(pi) should be near zero, got {val}");
     }
 
     #[tokio::test]
