@@ -11,6 +11,7 @@ members = [
     "crates/plugins/plugin-cmd",
     "crates/plugins/plugin-files",
     "crates/k-launcher-ui-egui",
+    "crates/plugins/plugin-url",
 ]
 resolver = "2"
 
