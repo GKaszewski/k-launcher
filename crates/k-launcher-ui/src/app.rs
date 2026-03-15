@@ -88,7 +88,9 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
             };
             let len = state.results.len();
             match named {
-                Named::Escape => std::process::exit(0),
+                Named::Escape => {
+                    std::process::exit(0);
+                }
                 Named::ArrowDown => {
                     if len > 0 {
                         state.selected = (state.selected + 1).min(len - 1);
