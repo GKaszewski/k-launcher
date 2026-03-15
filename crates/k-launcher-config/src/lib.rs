@@ -107,8 +107,7 @@ impl Default for PluginsCfg {
 }
 
 pub fn load() -> Config {
-    let path = dirs::config_dir()
-        .map(|d| d.join("k-launcher").join("config.toml"));
+    let path = dirs::config_dir().map(|d| d.join("k-launcher").join("config.toml"));
     let Some(path) = path else {
         return Config::default();
     };

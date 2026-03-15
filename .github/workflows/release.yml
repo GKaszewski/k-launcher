@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system deps
+        run: sudo apt-get install -y libwayland-dev libxkbcommon-dev pkg-config
+      - run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: k-launcher
+          path: target/release/k-launcher

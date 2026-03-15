@@ -1,5 +1,5 @@
-use std::process::{Command, Stdio};
 use std::os::unix::process::CommandExt;
+use std::process::{Command, Stdio};
 
 use k_launcher_kernel::{AppLauncher, LaunchAction};
 
@@ -77,21 +77,31 @@ impl AppLauncher for UnixAppLauncher {
                             .stdin(Stdio::null())
                             .stdout(Stdio::null())
                             .stderr(Stdio::null())
-                            .pre_exec(|| { libc::setsid(); Ok(()) })
+                            .pre_exec(|| {
+                                libc::setsid();
+                                Ok(())
+                            })
                             .spawn()
                     };
                 }
             }
             LaunchAction::SpawnInTerminal(cmd) => {
-                let Some((term_bin, term_args)) = resolve_terminal() else { return };
+                let Some((term_bin, term_args)) = resolve_terminal() else {
+                    return;
+                };
                 let _ = unsafe {
                     Command::new(&term_bin)
                         .args(&term_args)
-                        .arg("sh").arg("-c").arg(cmd)
+                        .arg("sh")
+                        .arg("-c")
+                        .arg(cmd)
                         .stdin(Stdio::null())
                         .stdout(Stdio::null())
                         .stderr(Stdio::null())
-                        .pre_exec(|| { libc::setsid(); Ok(()) })
+                        .pre_exec(|| {
+                            libc::setsid();
+                            Ok(())
+                        })
                         .spawn()
                 };
             }

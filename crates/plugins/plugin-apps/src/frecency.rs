@@ -24,7 +24,10 @@ impl FrecencyStore {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        Arc::new(Self { path, data: Mutex::new(data) })
+        Arc::new(Self {
+            path,
+            data: Mutex::new(data),
+        })
     }
 
     #[cfg(test)]
@@ -36,11 +39,14 @@ impl FrecencyStore {
     }
 
     pub fn load() -> Arc<Self> {
-        let path = xdg::BaseDirectories::new()
-            .get_data_home()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("k-launcher")
-            .join("frecency.json");
+        let Some(data_home) = xdg::BaseDirectories::new().get_data_home() else {
+            tracing::warn!("XDG_DATA_HOME unavailable; frecency disabled (in-memory only)");
+            return Arc::new(Self {
+                path: PathBuf::from("/dev/null"),
+                data: Mutex::new(HashMap::new()),
+            });
+        };
+        let path = data_home.join("k-launcher").join("frecency.json");
         Self::new(path)
     }
 
@@ -50,7 +56,10 @@ impl FrecencyStore {
             .unwrap_or_default()
             .as_secs();
         let mut data = self.data.lock().unwrap();
-        let entry = data.entry(id.to_string()).or_insert(Entry { count: 0, last_used: 0 });
+        let entry = data.entry(id.to_string()).or_insert(Entry {
+            count: 0,
+            last_used: 0,
+        });
         entry.count += 1;
         entry.last_used = now;
         if let Some(parent) = self.path.parent() {
@@ -69,7 +78,13 @@ impl FrecencyStore {
             .unwrap_or_default()
             .as_secs();
         let age_secs = now.saturating_sub(entry.last_used);
-        let decay = if age_secs < 3600 { 4 } else if age_secs < 86400 { 2 } else { 1 };
+        let decay = if age_secs < 3600 {
+            4
+        } else if age_secs < 86400 {
+            2
+        } else {
+            1
+        };
         entry.count * decay
     }
 
@@ -83,7 +98,13 @@ impl FrecencyStore {
             .iter()
             .map(|(id, entry)| {
                 let age_secs = now.saturating_sub(entry.last_used);
-                let decay = if age_secs < 3600 { 4 } else if age_secs < 86400 { 2 } else { 1 };
+                let decay = if age_secs < 3600 {
+                    4
+                } else if age_secs < 86400 {
+                    2
+                } else {
+                    1
+                };
                 (id.clone(), entry.count * decay)
             })
             .collect();

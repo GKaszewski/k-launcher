@@ -1,0 +1,11 @@
+[Unit]
+Description=k-launcher command palette daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/k-launcher
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target

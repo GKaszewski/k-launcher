@@ -76,11 +76,7 @@ impl Plugin for FilesPlugin {
                 let full_path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
                 let is_dir = full_path.is_dir();
-                let title = if is_dir {
-                    format!("{name}/")
-                } else {
-                    name
-                };
+                let title = if is_dir { format!("{name}/") } else { name };
                 let path_str = full_path.to_string_lossy().to_string();
                 SearchResult {
                     id: ResultId::new(format!("file-{i}")),

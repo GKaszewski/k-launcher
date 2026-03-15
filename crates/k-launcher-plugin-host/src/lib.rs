@@ -43,7 +43,9 @@ async fn do_search(
     io: &mut ProcessIo,
     query: &str,
 ) -> Result<Vec<ExternalResult>, Box<dyn std::error::Error + Send + Sync>> {
-    let line = serde_json::to_string(&Query { query: query.to_string() })?;
+    let line = serde_json::to_string(&Query {
+        query: query.to_string(),
+    })?;
     io.stdin.write_all(line.as_bytes()).await?;
     io.stdin.write_all(b"\n").await?;
     io.stdin.flush().await?;
@@ -143,7 +145,9 @@ mod tests {
 
     #[test]
     fn query_serializes_correctly() {
-        let q = Query { query: "firefox".to_string() };
+        let q = Query {
+            query: "firefox".to_string(),
+        };
         assert_eq!(serde_json::to_string(&q).unwrap(), r#"{"query":"firefox"}"#);
     }
 
@@ -155,21 +159,27 @@ mod tests {
         assert_eq!(results[0].id, "1");
         assert_eq!(results[0].title, "Firefox");
         assert_eq!(results[0].score, 80);
-        assert!(matches!(&results[0].action, ExternalAction::SpawnProcess { cmd } if cmd == "firefox"));
+        assert!(
+            matches!(&results[0].action, ExternalAction::SpawnProcess { cmd } if cmd == "firefox")
+        );
     }
 
     #[test]
     fn result_parses_copy_action() {
         let json = r#"[{"id":"c","title":"= 4","score":90,"action":{"type":"CopyToClipboard","text":"4"}}]"#;
         let results: Vec<ExternalResult> = serde_json::from_str(json).unwrap();
-        assert!(matches!(&results[0].action, ExternalAction::CopyToClipboard { text } if text == "4"));
+        assert!(
+            matches!(&results[0].action, ExternalAction::CopyToClipboard { text } if text == "4")
+        );
     }
 
     #[test]
     fn result_parses_open_path_action() {
         let json = r#"[{"id":"f","title":"/home/user","score":50,"action":{"type":"OpenPath","path":"/home/user"}}]"#;
         let results: Vec<ExternalResult> = serde_json::from_str(json).unwrap();
-        assert!(matches!(&results[0].action, ExternalAction::OpenPath { path } if path == "/home/user"));
+        assert!(
+            matches!(&results[0].action, ExternalAction::OpenPath { path } if path == "/home/user")
+        );
     }
 
     #[test]
@@ -182,7 +192,8 @@ mod tests {
 
     #[test]
     fn result_parses_missing_optional_fields() {
-        let json = r#"[{"id":"x","title":"X","score":10,"action":{"type":"SpawnProcess","cmd":"x"}}]"#;
+        let json =
+            r#"[{"id":"x","title":"X","score":10,"action":{"type":"SpawnProcess","cmd":"x"}}]"#;
         let results: Vec<ExternalResult> = serde_json::from_str(json).unwrap();
         assert!(results[0].description.is_none());
         assert!(results[0].icon.is_none());

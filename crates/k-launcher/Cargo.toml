@@ -35,3 +35,4 @@ plugin-calc = { path = "../plugins/plugin-calc" }
 plugin-cmd = { path = "../plugins/plugin-cmd" }
 plugin-files = { path = "../plugins/plugin-files" }
 tokio = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

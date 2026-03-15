@@ -127,11 +127,20 @@ impl eframe::App for KLauncherApp {
                 ui.set_width(ui.available_width());
                 for (i, result) in self.results.iter().enumerate() {
                     let is_selected = i == self.selected;
-                    let bg = if is_selected { SELECTED_BG } else { Color32::TRANSPARENT };
+                    let bg = if is_selected {
+                        SELECTED_BG
+                    } else {
+                        Color32::TRANSPARENT
+                    };
 
                     let row_frame = egui::Frame::new()
                         .fill(bg)
-                        .inner_margin(egui::Margin { left: 8, right: 8, top: 6, bottom: 6 })
+                        .inner_margin(egui::Margin {
+                            left: 8,
+                            right: 8,
+                            top: 6,
+                            bottom: 6,
+                        })
                         .corner_radius(egui::CornerRadius::same(4));
 
                     row_frame.show(ui, |ui| {

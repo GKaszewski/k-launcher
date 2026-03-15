@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use crate::{AppName, DesktopEntry, DesktopEntrySource, ExecCommand, IconPath};
 use crate::humanize_category;
+use crate::{AppName, DesktopEntry, DesktopEntrySource, ExecCommand, IconPath};
 
 pub struct FsDesktopEntrySource;
 
@@ -45,15 +45,79 @@ impl DesktopEntrySource for FsDesktopEntrySource {
     }
 }
 
+pub(crate) fn clean_exec(exec: &str) -> String {
+    // Tokenize respecting double-quoted strings, then filter field codes.
+    let mut tokens: Vec<String> = Vec::new();
+    let mut chars = exec.chars().peekable();
+
+    while let Some(&ch) = chars.peek() {
+        if ch.is_whitespace() {
+            chars.next();
+            continue;
+        }
+        if ch == '"' {
+            // Consume opening quote
+            chars.next();
+            let mut token = String::from('"');
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                if c == '"' {
+                    token.push('"');
+                    break;
+                }
+                token.push(c);
+            }
+            // Strip embedded field codes like %f inside the quoted string
+            // (between the quotes, before re-assembling)
+            let inner = &token[1..token.len().saturating_sub(1)];
+            let cleaned_inner: String = inner
+                .split_whitespace()
+                .filter(|s| !is_field_code(s))
+                .collect::<Vec<_>>()
+                .join(" ");
+            tokens.push(format!("\"{cleaned_inner}\""));
+        } else {
+            let mut token = String::new();
+            while let Some(&c) = chars.peek() {
+                if c.is_whitespace() {
+                    break;
+                }
+                chars.next();
+                token.push(c);
+            }
+            if !is_field_code(&token) {
+                tokens.push(token);
+            }
+        }
+    }
+
+    tokens.join(" ")
+}
+
+fn is_field_code(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 2 && b[0] == b'%' && b[1].is_ascii_alphabetic()
+}
+
 pub fn resolve_icon_path(name: &str) -> Option<String> {
     if name.starts_with('/') && Path::new(name).exists() {
         return Some(name.to_string());
     }
+    // Try linicon freedesktop theme traversal
+    let themes = ["hicolor", "Adwaita", "breeze", "Papirus"];
+    for theme in &themes {
+        if let Some(icon_path) = linicon::lookup_icon(name)
+            .from_theme(theme)
+            .with_size(48)
+            .find_map(|r| r.ok())
+        {
+            return Some(icon_path.path.to_string_lossy().into_owned());
+        }
+    }
+    // Fallback to pixmaps
     let candidates = [
         format!("/usr/share/pixmaps/{name}.png"),
         format!("/usr/share/pixmaps/{name}.svg"),
-        format!("/usr/share/icons/hicolor/48x48/apps/{name}.png"),
-        format!("/usr/share/icons/hicolor/scalable/apps/{name}.svg"),
     ];
     candidates.into_iter().find(|p| Path::new(p).exists())
 }
@@ -90,13 +154,15 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
                 "Type" if !is_application => is_application = value.trim() == "Application",
                 "NoDisplay" => no_display = value.trim().eq_ignore_ascii_case("true"),
                 "Categories" if category.is_none() => {
-                    category = value.trim()
+                    category = value
+                        .trim()
                         .split(';')
                         .find(|s| !s.is_empty())
                         .map(|s| humanize_category(s.trim()));
                 }
                 "Keywords" if keywords.is_empty() => {
-                    keywords = value.trim()
+                    keywords = value
+                        .trim()
                         .split(';')
                         .filter(|s| !s.is_empty())
                         .map(|s| s.trim().to_string())
@@ -111,16 +177,7 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
         return None;
     }
 
-    let exec_clean: String = exec?
-        .split_whitespace()
-        .filter(|s| !s.starts_with('%'))
-        .fold(String::new(), |mut acc, s| {
-            if !acc.is_empty() {
-                acc.push(' ');
-            }
-            acc.push_str(s);
-            acc
-        });
+    let exec_clean: String = clean_exec(&exec?);
 
     Some(DesktopEntry {
         name: AppName::new(name?),
@@ -129,4 +186,32 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
         category,
         keywords,
     })
+}
+
+#[cfg(test)]
+mod exec_tests {
+    use super::clean_exec;
+
+    #[test]
+    fn strips_bare_field_code() {
+        assert_eq!(clean_exec("app --file %f"), "app --file");
+    }
+
+    #[test]
+    fn strips_multiple_field_codes() {
+        assert_eq!(clean_exec("app %U --flag"), "app --flag");
+    }
+
+    #[test]
+    fn preserves_quoted_value() {
+        assert_eq!(
+            clean_exec(r#"app --arg="value" %U"#),
+            r#"app --arg="value""#
+        );
+    }
+
+    #[test]
+    fn handles_plain_exec() {
+        assert_eq!(clean_exec("firefox"), "firefox");
+    }
 }

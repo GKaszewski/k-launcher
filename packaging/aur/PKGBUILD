@@ -1,0 +1,17 @@
+# Maintainer: k-launcher contributors
+pkgname=k-launcher-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="GPU-accelerated command palette launcher for Linux (Wayland/X11)"
+arch=('x86_64')
+url="https://github.com/GKaszewski/k-launcher"
+license=('MIT')
+depends=('wayland' 'libxkbcommon')
+provides=('k-launcher')
+conflicts=('k-launcher')
+source=("k-launcher-${pkgver}::https://github.com/GKaszewski/k-launcher/releases/download/v${pkgver}/k-launcher")
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "k-launcher-${pkgver}" "${pkgdir}/usr/bin/k-launcher"
+}

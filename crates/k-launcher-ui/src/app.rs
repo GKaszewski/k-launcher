@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use iced::{
-    Border, Color, Element, Length, Size, Subscription, Task,
-    event,
+    Border, Color, Element, Length, Size, Subscription, Task, event,
     keyboard::{Event as KeyEvent, Key, key::Named},
-    widget::{column, container, image, row, scrollable, svg, text, text_input, Space},
+    widget::{Space, column, container, image, row, scrollable, svg, text, text_input},
     window,
 };
 
@@ -26,6 +25,8 @@ pub struct KLauncherApp {
     results: Arc<Vec<SearchResult>>,
     selected: usize,
     cfg: AppearanceCfg,
+    error: Option<String>,
+    search_epoch: u64,
 }
 
 impl KLauncherApp {
@@ -41,6 +42,8 @@ impl KLauncherApp {
             results: Arc::new(vec![]),
             selected: 0,
             cfg,
+            error: None,
+            search_epoch: 0,
         }
     }
 }
@@ -48,23 +51,31 @@ impl KLauncherApp {
 #[derive(Debug, Clone)]
 pub enum Message {
     QueryChanged(String),
-    ResultsReady(Arc<Vec<SearchResult>>),
+    ResultsReady(u64, Arc<Vec<SearchResult>>),
     KeyPressed(KeyEvent),
 }
 
 fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
     match message {
         Message::QueryChanged(q) => {
+            state.error = None;
             state.query = q.clone();
             state.selected = 0;
+            state.search_epoch += 1;
+            let epoch = state.search_epoch;
             let engine = state.engine.clone();
             Task::perform(
-                async move { engine.search(&q).await },
-                |results| Message::ResultsReady(Arc::new(results)),
+                async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    (epoch, engine.search(&q).await)
+                },
+                |(epoch, results)| Message::ResultsReady(epoch, Arc::new(results)),
             )
         }
-        Message::ResultsReady(results) => {
-            state.results = results;
+        Message::ResultsReady(epoch, results) => {
+            if epoch == state.search_epoch {
+                state.results = results;
+            }
             Task::none()
         }
         Message::KeyPressed(event) => {
@@ -114,8 +125,13 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         .padding(12)
         .size(cfg.search_font_size)
         .style(|theme, _status| {
-            let mut s = iced::widget::text_input::default(theme, iced::widget::text_input::Status::Active);
-            s.border = Border { color: Color::TRANSPARENT, width: 0.0, radius: 0.0.into() };
+            let mut s =
+                iced::widget::text_input::default(theme, iced::widget::text_input::Status::Active);
+            s.border = Border {
+                color: Color::TRANSPARENT,
+                width: 0.0,
+                radius: 0.0.into(),
+            };
             s
         });
 
@@ -135,26 +151,27 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
                 Color::from_rgba8(255, 255, 255, 0.07)
             };
             let icon_el: Element<'_, Message> = match &result.icon {
-                Some(p) if p.ends_with(".svg") =>
-                    svg(svg::Handle::from_path(p)).width(24).height(24).into(),
-                Some(p) =>
-                    image(image::Handle::from_path(p)).width(24).height(24).into(),
+                Some(p) if p.ends_with(".svg") => {
+                    svg(svg::Handle::from_path(p)).width(24).height(24).into()
+                }
+                Some(p) => image(image::Handle::from_path(p))
+                    .width(24)
+                    .height(24)
+                    .into(),
                 None => Space::new().width(24).height(24).into(),
             };
             let title_col: Element<'_, Message> = if let Some(desc) = &result.description {
                 column![
                     text(result.title.as_str()).size(title_size),
-                    text(desc).size(desc_size).color(Color::from_rgba8(210, 215, 230, 1.0)),
+                    text(desc)
+                        .size(desc_size)
+                        .color(Color::from_rgba8(210, 215, 230, 1.0)),
                 ]
                 .into()
             } else {
                 text(result.title.as_str()).size(title_size).into()
             };
-            container(
-                row![icon_el, title_col]
-                    .spacing(8)
-                    .align_y(iced::Center),
-            )
+            container(row![icon_el, title_col].spacing(8).align_y(iced::Center))
                 .width(Length::Fill)
                 .padding([6, 12])
                 .style(move |_theme| container::Style {
@@ -186,7 +203,23 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
         scrollable(column(result_rows).spacing(2).width(Length::Fill)).height(Length::Fill)
     };
 
-    let content = column![search_bar, results_list]
+    let maybe_error: Option<Element<'_, Message>> = state.error.as_ref().map(|msg| {
+        container(
+            text(msg.as_str())
+                .size(12.0)
+                .color(Color::from_rgba8(255, 80, 80, 1.0)),
+        )
+        .width(Length::Fill)
+        .padding([4, 12])
+        .into()
+    });
+
+    let mut content_children: Vec<Element<'_, Message>> =
+        vec![search_bar.into(), results_list.into()];
+    if let Some(err) = maybe_error {
+        content_children.push(err);
+    }
+    let content = column(content_children)
         .spacing(8)
         .padding(12)
         .width(Length::Fill)
@@ -234,15 +267,15 @@ pub fn run(
         update,
         view,
     )
-        .title("K-Launcher")
-        .subscription(subscription)
-        .window(window::Settings {
-            size: Size::new(wc.width, wc.height),
-            position: window::Position::Centered,
-            decorations: wc.decorations,
-            transparent: wc.transparent,
-            resizable: wc.resizable,
-            ..Default::default()
-        })
-        .run()
+    .title("K-Launcher")
+    .subscription(subscription)
+    .window(window::Settings {
+        size: Size::new(wc.width, wc.height),
+        position: window::Position::Centered,
+        decorations: wc.decorations,
+        transparent: wc.transparent,
+        resizable: wc.resizable,
+        ..Default::default()
+    })
+    .run()
 }

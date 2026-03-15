@@ -1,29 +1,62 @@
+mod client;
+
 use std::sync::Arc;
 
 use k_launcher_kernel::Kernel;
 use k_launcher_os_bridge::UnixAppLauncher;
 use k_launcher_plugin_host::ExternalPlugin;
-use plugin_apps::{AppsPlugin, frecency::FrecencyStore};
 #[cfg(target_os = "linux")]
 use plugin_apps::linux::FsDesktopEntrySource;
+use plugin_apps::{AppsPlugin, frecency::FrecencyStore};
 use plugin_calc::CalcPlugin;
 use plugin_cmd::CmdPlugin;
 use plugin_files::FilesPlugin;
 
-fn main() -> iced::Result {
+fn main() {
+    tracing_subscriber::fmt::init();
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(|s| s.as_str()) == Some("show") {
+        if let Err(e) = client::send_show() {
+            eprintln!("error: failed to send show command: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    if let Err(e) = run_ui() {
+        eprintln!("error: UI: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run_ui() -> iced::Result {
     let cfg = k_launcher_config::load();
     let launcher = Arc::new(UnixAppLauncher::new());
     let frecency = FrecencyStore::load();
 
     let mut plugins: Vec<Arc<dyn k_launcher_kernel::Plugin>> = vec![];
-    if cfg.plugins.cmd   { plugins.push(Arc::new(CmdPlugin::new())); }
-    if cfg.plugins.calc  { plugins.push(Arc::new(CalcPlugin::new())); }
-    if cfg.plugins.files { plugins.push(Arc::new(FilesPlugin::new())); }
-    if cfg.plugins.apps  {
-        plugins.push(Arc::new(AppsPlugin::new(FsDesktopEntrySource::new(), frecency)));
+    if cfg.plugins.cmd {
+        plugins.push(Arc::new(CmdPlugin::new()));
+    }
+    if cfg.plugins.calc {
+        plugins.push(Arc::new(CalcPlugin::new()));
+    }
+    if cfg.plugins.files {
+        plugins.push(Arc::new(FilesPlugin::new()));
+    }
+    if cfg.plugins.apps {
+        plugins.push(Arc::new(AppsPlugin::new(
+            FsDesktopEntrySource::new(),
+            frecency,
+        )));
     }
     for ext in &cfg.plugins.external {
-        plugins.push(Arc::new(ExternalPlugin::new(&ext.name, &ext.path, ext.args.clone())));
+        plugins.push(Arc::new(ExternalPlugin::new(
+            &ext.name,
+            &ext.path,
+            ext.args.clone(),
+        )));
     }
 
     let kernel: Arc<dyn k_launcher_kernel::SearchEngine> =

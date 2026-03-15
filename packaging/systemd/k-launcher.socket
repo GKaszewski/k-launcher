@@ -1,0 +1,8 @@
+[Unit]
+Description=k-launcher IPC socket
+
+[Socket]
+ListenStream=%t/k-launcher.sock
+
+[Install]
+WantedBy=sockets.target

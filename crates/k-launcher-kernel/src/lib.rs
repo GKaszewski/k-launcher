@@ -29,7 +29,9 @@ impl ResultTitle {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct Score(u32);
 
 impl Score {
@@ -104,7 +106,10 @@ pub struct Kernel {
 
 impl Kernel {
     pub fn new(plugins: Vec<Arc<dyn Plugin>>, max_results: usize) -> Self {
-        Self { plugins, max_results }
+        Self {
+            plugins,
+            max_results,
+        }
     }
 
     pub async fn search(&self, query: &str) -> Vec<SearchResult> {

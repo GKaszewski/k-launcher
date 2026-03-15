@@ -1,0 +1,15 @@
+pkgbase = k-launcher-bin
+	pkgdesc = GPU-accelerated command palette launcher for Linux (Wayland/X11)
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/GKaszewski/k-launcher
+	arch = x86_64
+	license = MIT
+	depends = wayland
+	depends = libxkbcommon
+	provides = k-launcher
+	conflicts = k-launcher
+	source = k-launcher-0.1.0::https://github.com/GKaszewski/k-launcher/releases/download/v0.1.0/k-launcher
+	sha256sums = SKIP
+
+pkgname = k-launcher-bin

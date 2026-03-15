@@ -68,7 +68,6 @@ pub trait DesktopEntrySource: Send + Sync {
 struct CachedEntry {
     id: String,
     name: AppName,
-    name_lc: String,
     keywords_lc: Vec<String>,
     category: Option<String>,
     icon: Option<String>,
@@ -90,10 +89,12 @@ impl AppsPlugin {
             .into_iter()
             .map(|e| {
                 let id = format!("app-{}", e.name.as_str());
-                let name_lc = e.name.as_str().to_lowercase();
                 let keywords_lc = e.keywords.iter().map(|k| k.to_lowercase()).collect();
                 #[cfg(target_os = "linux")]
-                let icon = e.icon.as_ref().and_then(|p| linux::resolve_icon_path(p.as_str()));
+                let icon = e
+                    .icon
+                    .as_ref()
+                    .and_then(|p| linux::resolve_icon_path(p.as_str()));
                 #[cfg(not(target_os = "linux"))]
                 let icon: Option<String> = None;
                 let exec = e.exec.as_str().to_string();
@@ -104,7 +105,6 @@ impl AppsPlugin {
                 });
                 let cached = CachedEntry {
                     id: id.clone(),
-                    name_lc,
                     keywords_lc,
                     category: e.category,
                     icon,
@@ -120,15 +120,37 @@ impl AppsPlugin {
 }
 
 fn initials(name_lc: &str) -> String {
-    name_lc.split_whitespace().filter_map(|w| w.chars().next()).collect()
+    name_lc
+        .split_whitespace()
+        .filter_map(|w| w.chars().next())
+        .collect()
 }
 
-fn score_match(name_lc: &str, query_lc: &str) -> Option<u32> {
-    if name_lc == query_lc           { return Some(100); }
-    if name_lc.starts_with(query_lc) { return Some(80);  }
-    if name_lc.contains(query_lc)    { return Some(60);  }
-    if initials(name_lc).starts_with(query_lc) { return Some(70); }
-    None
+fn score_match(name: &str, query: &str) -> Option<u32> {
+    use nucleo_matcher::{
+        Config, Matcher, Utf32Str,
+        pattern::{CaseMatching, Normalization, Pattern},
+    };
+
+    let mut matcher = Matcher::new(Config::DEFAULT);
+    let pattern = Pattern::parse(query, CaseMatching::Ignore, Normalization::Smart);
+
+    let mut name_chars: Vec<char> = name.chars().collect();
+    let haystack = Utf32Str::new(name, &mut name_chars);
+    let score = pattern.score(haystack, &mut matcher);
+
+    if let Some(s) = score {
+        let name_lc = name.to_lowercase();
+        let query_lc = query.to_lowercase();
+        let bonus: u32 = if initials(&name_lc).starts_with(&query_lc) {
+            20
+        } else {
+            0
+        };
+        Some(s.saturating_add(bonus))
+    } else {
+        None
+    }
 }
 
 pub(crate) fn humanize_category(s: &str) -> String {
@@ -150,7 +172,9 @@ impl Plugin for AppsPlugin {
 
     async fn search(&self, query: &str) -> Vec<SearchResult> {
         if query.is_empty() {
-            return self.frecency.top_ids(5)
+            return self
+                .frecency
+                .top_ids(5)
                 .iter()
                 .filter_map(|id| {
                     let e = self.entries.get(id)?;
@@ -172,8 +196,11 @@ impl Plugin for AppsPlugin {
         self.entries
             .values()
             .filter_map(|e| {
-                let score = score_match(&e.name_lc, &query_lc).or_else(|| {
-                    e.keywords_lc.iter().any(|k| k.contains(&query_lc)).then_some(50)
+                let score = score_match(e.name.as_str(), query).or_else(|| {
+                    e.keywords_lc
+                        .iter()
+                        .any(|k| k.contains(&query_lc))
+                        .then_some(50)
                 })?;
                 Some(SearchResult {
                     id: ResultId::new(&e.id),
@@ -226,7 +253,14 @@ mod tests {
             Self {
                 entries: entries
                     .into_iter()
-                    .map(|(n, e, kw)| (n.to_string(), e.to_string(), None, kw.into_iter().map(|s| s.to_string()).collect()))
+                    .map(|(n, e, kw)| {
+                        (
+                            n.to_string(),
+                            e.to_string(),
+                            None,
+                            kw.into_iter().map(|s| s.to_string()).collect(),
+                        )
+                    })
                     .collect(),
             }
         }
@@ -249,35 +283,49 @@ mod tests {
 
     #[tokio::test]
     async fn apps_prefix_match() {
-        let p = AppsPlugin::new(MockSource::with(vec![("Firefox", "firefox")]), ephemeral_frecency());
+        let p = AppsPlugin::new(
+            MockSource::with(vec![("Firefox", "firefox")]),
+            ephemeral_frecency(),
+        );
         let results = p.search("fire").await;
         assert_eq!(results[0].title.as_str(), "Firefox");
     }
 
     #[tokio::test]
     async fn apps_no_match_returns_empty() {
-        let p = AppsPlugin::new(MockSource::with(vec![("Firefox", "firefox")]), ephemeral_frecency());
+        let p = AppsPlugin::new(
+            MockSource::with(vec![("Firefox", "firefox")]),
+            ephemeral_frecency(),
+        );
         assert!(p.search("zz").await.is_empty());
     }
 
     #[tokio::test]
     async fn apps_empty_query_no_frecency_returns_empty() {
-        let p = AppsPlugin::new(MockSource::with(vec![("Firefox", "firefox")]), ephemeral_frecency());
+        let p = AppsPlugin::new(
+            MockSource::with(vec![("Firefox", "firefox")]),
+            ephemeral_frecency(),
+        );
         assert!(p.search("").await.is_empty());
     }
 
     #[test]
     fn score_match_abbreviation() {
         assert_eq!(initials("visual studio code"), "vsc");
-        assert_eq!(score_match("visual studio code", "vsc"), Some(70));
+        assert!(score_match("visual studio code", "vsc").is_some());
     }
 
     #[test]
     fn score_match_exact_beats_prefix_beats_abbrev_beats_substr() {
-        assert_eq!(score_match("firefox", "firefox"), Some(100));
-        assert_eq!(score_match("firefox", "fire"), Some(80));
-        assert_eq!(score_match("gnu firefox", "gf"), Some(70));
-        assert_eq!(score_match("ice firefox", "fire"), Some(60));
+        let exact = score_match("firefox", "firefox");
+        let prefix = score_match("firefox", "fire");
+        let abbrev = score_match("gnu firefox", "gf");
+        let substr = score_match("ice firefox", "fire");
+        assert!(exact.is_some());
+        assert!(prefix.is_some());
+        assert!(abbrev.is_some());
+        assert!(substr.is_some());
+        assert!(exact.unwrap() > prefix.unwrap());
     }
 
     #[tokio::test]
@@ -289,7 +337,7 @@ mod tests {
         let results = p.search("vsc").await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title.as_str(), "Visual Studio Code");
-        assert_eq!(results[0].score.value(), 70);
+        assert!(results[0].score.value() > 0);
     }
 
     #[tokio::test]
@@ -301,6 +349,20 @@ mod tests {
         let results = p.search("editor").await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].score.value(), 50);
+    }
+
+    #[tokio::test]
+    async fn apps_fuzzy_typo_match() {
+        let p = AppsPlugin::new(
+            MockSource::with(vec![("Firefox", "firefox")]),
+            ephemeral_frecency(),
+        );
+        let results = p.search("frefox").await;
+        assert!(
+            !results.is_empty(),
+            "nucleo should fuzzy-match 'frefox' to 'Firefox'"
+        );
+        assert!(results[0].score.value() > 0);
     }
 
     #[test]

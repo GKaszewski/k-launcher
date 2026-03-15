@@ -22,8 +22,8 @@ fn strip_numeric_separators(expr: &str) -> String {
 }
 
 const MATH_FNS: &[&str] = &[
-    "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-    "ln", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
+    "sqrt", "sin", "cos", "tan", "asin", "acos", "atan", "ln", "log2", "log10", "exp", "abs",
+    "ceil", "floor", "round",
 ];
 
 fn should_eval(query: &str) -> bool {
@@ -36,8 +36,8 @@ fn should_eval(query: &str) -> bool {
         || MATH_FNS.iter().any(|f| q.starts_with(f))
 }
 
-static MATH_CTX: LazyLock<evalexpr::HashMapContext<evalexpr::DefaultNumericTypes>> =
-    LazyLock::new(|| {
+static MATH_CTX: LazyLock<evalexpr::HashMapContext<evalexpr::DefaultNumericTypes>> = LazyLock::new(
+    || {
         use evalexpr::*;
         context_map! {
             "pi" => float std::f64::consts::PI,
@@ -59,7 +59,8 @@ static MATH_CTX: LazyLock<evalexpr::HashMapContext<evalexpr::DefaultNumericTypes
             "round" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.round())))
         }
         .expect("static math context must be valid")
-    });
+    },
+);
 
 #[async_trait]
 impl Plugin for CalcPlugin {
