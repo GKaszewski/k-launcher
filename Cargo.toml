@@ -8,6 +8,7 @@ members = [
     "crates/plugins/plugin-calc",
     "crates/plugins/plugin-cmd",
     "crates/plugins/plugin-files",
+    "crates/k-launcher-ui-egui",
 ]
 resolver = "2"
 

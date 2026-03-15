@@ -8,11 +8,16 @@ default-run = "k-launcher"
 name = "k-launcher"
 path = "src/main.rs"
 
+[[bin]]
+name = "k-launcher-egui"
+path = "src/main_egui.rs"
+
 [dependencies]
 iced = { workspace = true }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
 k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
 k-launcher-ui = { path = "../k-launcher-ui" }
+k-launcher-ui-egui = { path = "../k-launcher-ui-egui" }
 plugin-apps = { path = "../plugins/plugin-apps" }
 plugin-calc = { path = "../plugins/plugin-calc" }
 plugin-cmd = { path = "../plugins/plugin-cmd" }
