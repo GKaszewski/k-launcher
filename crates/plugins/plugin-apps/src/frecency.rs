@@ -37,8 +37,8 @@ impl FrecencyStore {
 
     pub fn load() -> Arc<Self> {
         let path = xdg::BaseDirectories::new()
-            .map(|xdg| xdg.get_data_home())
-            .unwrap_or_else(|_| PathBuf::from("."))
+            .get_data_home()
+            .unwrap_or_else(|| PathBuf::from("."))
             .join("k-launcher")
             .join("frecency.json");
         Self::new(path)

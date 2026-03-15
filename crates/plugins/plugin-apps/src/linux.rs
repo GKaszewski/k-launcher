@@ -20,11 +20,12 @@ impl Default for FsDesktopEntrySource {
 impl DesktopEntrySource for FsDesktopEntrySource {
     fn entries(&self) -> Vec<DesktopEntry> {
         let mut dirs = Vec::new();
-        if let Ok(xdg) = xdg::BaseDirectories::new() {
-            dirs.push(xdg.get_data_home().join("applications"));
-            for d in xdg.get_data_dirs() {
-                dirs.push(d.join("applications"));
-            }
+        let xdg = xdg::BaseDirectories::new();
+        if let Some(data_home) = xdg.get_data_home() {
+            dirs.push(data_home.join("applications"));
+        }
+        for d in xdg.get_data_dirs() {
+            dirs.push(d.join("applications"));
         }
         let mut entries = Vec::new();
         for dir in &dirs {

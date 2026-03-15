@@ -9,6 +9,6 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = { workspace = true }
-evalexpr = "11"
+evalexpr = "13"
 k-launcher-kernel = { path = "../../k-launcher-kernel" }
 tokio = { workspace = true }
