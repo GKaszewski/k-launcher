@@ -39,18 +39,34 @@ impl Plugin for CalcPlugin {
         let expr = query.strip_prefix('=').unwrap_or(query);
         match evalexpr::eval_number(expr) {
             Ok(n) if n.is_finite() => {
-                let display = if n.fract() == 0.0 {
-                    format!("= {}", n as i64)
+                let value_str = if n.fract() == 0.0 {
+                    format!("{}", n as i64)
                 } else {
-                    format!("= {n}")
+                    format!("{n}")
                 };
+                let display = format!("= {value_str}");
+                let expr_owned = expr.to_string();
+                let clipboard_val = value_str;
                 vec![SearchResult {
                     id: ResultId::new("calc-result"),
                     title: ResultTitle::new(display),
-                    description: None,
+                    description: Some(format!("{expr_owned} · Enter to copy")),
                     icon: None,
                     score: Score::new(90),
-                    on_execute: Arc::new(|| {}),
+                    on_execute: Arc::new(move || {
+                        if std::process::Command::new("wl-copy").arg(&clipboard_val).spawn().is_err() {
+                            use std::io::Write;
+                            if let Ok(mut child) = std::process::Command::new("xclip")
+                                .args(["-selection", "clipboard"])
+                                .stdin(std::process::Stdio::piped())
+                                .spawn()
+                            {
+                                if let Some(stdin) = child.stdin.as_mut() {
+                                    let _ = stdin.write_all(clipboard_val.as_bytes());
+                                }
+                            }
+                        }
+                    }),
                 }]
             }
             _ => vec![],

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use iced::{
-    Color, Element, Length, Size, Subscription, Task,
+    Border, Color, Element, Length, Size, Subscription, Task,
     event,
     keyboard::{Event as KeyEvent, Key, key::Named},
     widget::{column, container, image, row, scrollable, svg, text, text_input, Space},
@@ -9,6 +9,7 @@ use iced::{
 };
 
 use k_launcher_kernel::{Kernel, SearchResult};
+use k_launcher_os_bridge::WindowConfig;
 
 use crate::theme;
 
@@ -119,7 +120,7 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
             let title_col: Element<'_, Message> = if let Some(desc) = &result.description {
                 column![
                     text(result.title.as_str()).size(15),
-                    text(desc).size(11).color(Color::from_rgba8(180, 180, 200, 0.8)),
+                    text(desc).size(12).color(Color::from_rgba8(210, 215, 230, 1.0)),
                 ]
                 .into()
             } else {
@@ -134,14 +135,32 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
                 .padding([6, 12])
                 .style(move |_theme| container::Style {
                     background: Some(iced::Background::Color(bg_color)),
+                    border: Border {
+                        color: Color::TRANSPARENT,
+                        width: 0.0,
+                        radius: 4.0.into(),
+                    },
                     ..Default::default()
                 })
                 .into()
         })
         .collect();
 
-    let results_list =
-        scrollable(column(result_rows).spacing(2).width(Length::Fill)).height(Length::Fill);
+    let results_list = if state.results.is_empty() && !state.query.is_empty() {
+        scrollable(
+            container(
+                text("No results")
+                    .size(15)
+                    .color(Color::from_rgba8(180, 180, 200, 0.5)),
+            )
+            .width(Length::Fill)
+            .align_x(iced::Center)
+            .padding([20, 0]),
+        )
+        .height(Length::Fill)
+    } else {
+        scrollable(column(result_rows).spacing(2).width(Length::Fill)).height(Length::Fill)
+    };
 
     let content = column![search_bar, results_list]
         .spacing(8)
@@ -156,6 +175,11 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
             background: Some(iced::Background::Color(Color::from_rgba8(
                 20, 20, 30, 0.9,
             ))),
+            border: Border {
+                color: theme::AERO.border_cyan,
+                width: 1.0,
+                radius: 8.0.into(),
+            },
             ..Default::default()
         })
         .into()
@@ -169,6 +193,7 @@ fn subscription(_state: &KLauncherApp) -> Subscription<Message> {
 }
 
 pub fn run(kernel: Arc<Kernel>) -> iced::Result {
+    let wc = WindowConfig::launcher();
     iced::application(
         move || {
             let app = KLauncherApp::new(kernel.clone());
@@ -181,11 +206,11 @@ pub fn run(kernel: Arc<Kernel>) -> iced::Result {
         .title("K-Launcher")
         .subscription(subscription)
         .window(window::Settings {
-            size: Size::new(600.0, 400.0),
+            size: Size::new(wc.width, wc.height),
             position: window::Position::Centered,
-            decorations: false,
-            transparent: true,
-            resizable: false,
+            decorations: wc.decorations,
+            transparent: wc.transparent,
+            resizable: wc.resizable,
             ..Default::default()
         })
         .run()

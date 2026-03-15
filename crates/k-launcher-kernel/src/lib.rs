@@ -89,6 +89,7 @@ impl Kernel {
         let nested: Vec<Vec<SearchResult>> = join_all(futures).await;
         let mut flat: Vec<SearchResult> = nested.into_iter().flatten().collect();
         flat.sort_by(|a, b| b.score.cmp(&a.score));
+        flat.truncate(8);
         flat
     }
 }

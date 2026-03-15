@@ -15,4 +15,5 @@ k-launcher-ui = { path = "../k-launcher-ui" }
 plugin-apps = { path = "../plugins/plugin-apps" }
 plugin-calc = { path = "../plugins/plugin-calc" }
 plugin-cmd = { path = "../plugins/plugin-cmd" }
+plugin-files = { path = "../plugins/plugin-files" }
 tokio = { workspace = true }

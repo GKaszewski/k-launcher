@@ -1768,6 +1768,7 @@ dependencies = [
  "plugin-apps",
  "plugin-calc",
  "plugin-cmd",
+ "plugin-files",
  "tokio",
 ]
 
@@ -1791,6 +1792,7 @@ version = "0.1.0"
 dependencies = [
  "iced",
  "k-launcher-kernel",
+ "k-launcher-os-bridge",
  "tokio",
 ]
 
@@ -2766,6 +2768,11 @@ dependencies = [
 [[package]]
 name = "plugin-files"
 version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "k-launcher-kernel",
+ "tokio",
+]
 
 [[package]]
 name = "png"

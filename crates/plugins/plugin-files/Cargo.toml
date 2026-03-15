@@ -8,3 +8,6 @@ name = "plugin_files"
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = { workspace = true }
+k-launcher-kernel = { path = "../../k-launcher-kernel" }
+tokio = { workspace = true }
