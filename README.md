@@ -2,8 +2,6 @@
 
 A lightweight, GPU-accelerated command palette for Linux (Wayland/X11). Zero Electron — every pixel rendered via WGPU. Async search that never blocks the UI.
 
-![k-launcher](docs/screenshot.png)
-
 ## Quick Start
 
 ```bash
@@ -27,6 +25,7 @@ cargo build --release
 k-launcher uses a normal window; configure your compositor to float it.
 
 **Hyprland** (`~/.config/hypr/hyprland.conf`):
+
 ```
 windowrule = float, ^(k-launcher)$
 windowrule = center, ^(k-launcher)$
@@ -34,6 +33,7 @@ bind = SUPER, Space, exec, k-launcher
 ```
 
 **Sway** (`~/.config/sway/config`):
+
 ```
 for_window [app_id="k-launcher"] floating enable, move position center
 bindsym Mod4+space exec k-launcher
