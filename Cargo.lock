@@ -2737,6 +2737,8 @@ dependencies = [
  "async-trait",
  "k-launcher-kernel",
  "libc",
+ "serde",
+ "serde_json",
  "tokio",
  "xdg",
 ]

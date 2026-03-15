@@ -7,10 +7,6 @@ edition = "2024"
 name = "plugin_calc"
 path = "src/lib.rs"
 
-[[bin]]
-name = "plugin-calc"
-path = "src/main.rs"
-
 [dependencies]
 async-trait = { workspace = true }
 evalexpr = "11"

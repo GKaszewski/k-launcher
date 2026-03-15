@@ -116,8 +116,17 @@ fn view(state: &KLauncherApp) -> Element<'_, Message> {
                     image(image::Handle::from_path(p)).width(24).height(24).into(),
                 None => Space::new().width(24).height(24).into(),
             };
+            let title_col: Element<'_, Message> = if let Some(desc) = &result.description {
+                column![
+                    text(result.title.as_str()).size(15),
+                    text(desc).size(11).color(Color::from_rgba8(180, 180, 200, 0.8)),
+                ]
+                .into()
+            } else {
+                text(result.title.as_str()).size(15).into()
+            };
             container(
-                row![icon_el, text(result.title.as_str()).size(15)]
+                row![icon_el, title_col]
                     .spacing(8)
                     .align_y(iced::Center),
             )
