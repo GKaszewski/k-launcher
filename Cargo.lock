@@ -1767,6 +1767,7 @@ dependencies = [
  "k-launcher-ui",
  "plugin-apps",
  "plugin-calc",
+ "plugin-cmd",
  "tokio",
 ]
 
@@ -2747,6 +2748,16 @@ dependencies = [
  "async-trait",
  "evalexpr",
  "k-launcher-kernel",
+ "tokio",
+]
+
+[[package]]
+name = "plugin-cmd"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "k-launcher-kernel",
+ "libc",
  "tokio",
 ]
 

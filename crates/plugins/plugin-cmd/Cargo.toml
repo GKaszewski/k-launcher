@@ -1,0 +1,16 @@
+[package]
+name = "plugin-cmd"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "plugin_cmd"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait = { workspace = true }
+k-launcher-kernel = { path = "../../k-launcher-kernel" }
+libc = "0.2"
+
+[dev-dependencies]
+tokio = { workspace = true }
