@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use evalexpr::eval_number_with_context;
 use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct CalcPlugin;
@@ -19,13 +20,44 @@ fn strip_numeric_separators(expr: &str) -> String {
     expr.replace('_', "")
 }
 
+const MATH_FNS: &[&str] = &[
+    "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
+    "log", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
+];
+
 fn should_eval(query: &str) -> bool {
-    query
-        .chars()
+    let q = query.strip_prefix('=').unwrap_or(query);
+    q.chars()
         .next()
         .map(|c| c.is_ascii_digit() || c == '(' || c == '-')
         .unwrap_or(false)
         || query.starts_with('=')
+        || MATH_FNS.iter().any(|f| q.starts_with(f))
+}
+
+fn math_context() -> evalexpr::HashMapContext<evalexpr::DefaultNumericTypes> {
+    use evalexpr::*;
+    let ctx: HashMapContext<DefaultNumericTypes> = context_map! {
+        "pi" => float std::f64::consts::PI,
+        "e"  => float std::f64::consts::E,
+        "sqrt"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sqrt()))),
+        "sin"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.sin()))),
+        "cos"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.cos()))),
+        "tan"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.tan()))),
+        "asin"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.asin()))),
+        "acos"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.acos()))),
+        "atan"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.atan()))),
+        "log"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ln()))),
+        "log2"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log2()))),
+        "log10" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
+        "exp"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.exp()))),
+        "abs"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.abs()))),
+        "ceil"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ceil()))),
+        "floor" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.floor()))),
+        "round" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.round())))
+    }
+    .unwrap();
+    ctx
 }
 
 #[async_trait]
@@ -41,7 +73,7 @@ impl Plugin for CalcPlugin {
         let raw = query.strip_prefix('=').unwrap_or(query);
         let expr_owned = strip_numeric_separators(raw);
         let expr = expr_owned.as_str();
-        match evalexpr::eval_number(expr) {
+        match eval_number_with_context(expr, &math_context()) {
             Ok(n) if n.is_finite() => {
                 let value_str = if n.fract() == 0.0 {
                     format!("{}", n as i64)
@@ -85,6 +117,21 @@ mod tests {
     async fn calc_bad_expr_returns_empty() {
         let p = CalcPlugin::new();
         assert!(p.search("1/0").await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn calc_sqrt() {
+        let p = CalcPlugin::new();
+        let results = p.search("sqrt(9)").await;
+        assert_eq!(results[0].title.as_str(), "= 3");
+    }
+
+    #[tokio::test]
+    async fn calc_sin_pi() {
+        let p = CalcPlugin::new();
+        let results = p.search("sin(pi)").await;
+        // sin(pi) ≈ 0, but floating point; result should not be empty
+        assert!(!results.is_empty());
     }
 
     #[tokio::test]
