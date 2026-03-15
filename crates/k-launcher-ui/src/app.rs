@@ -8,7 +8,7 @@ use iced::{
     window,
 };
 
-use k_launcher_kernel::{Kernel, SearchResult};
+use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
 use k_launcher_os_bridge::WindowConfig;
 
 use crate::theme;
@@ -17,16 +17,18 @@ static INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
     std::sync::LazyLock::new(|| iced::widget::Id::new("search"));
 
 pub struct KLauncherApp {
-    kernel: Arc<Kernel>,
+    engine: Arc<dyn SearchEngine>,
+    launcher: Arc<dyn AppLauncher>,
     query: String,
     results: Arc<Vec<SearchResult>>,
     selected: usize,
 }
 
 impl KLauncherApp {
-    fn new(kernel: Arc<Kernel>) -> Self {
+    fn new(engine: Arc<dyn SearchEngine>, launcher: Arc<dyn AppLauncher>) -> Self {
         Self {
-            kernel,
+            engine,
+            launcher,
             query: String::new(),
             results: Arc::new(vec![]),
             selected: 0,
@@ -46,9 +48,9 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
         Message::QueryChanged(q) => {
             state.query = q.clone();
             state.selected = 0;
-            let kernel = state.kernel.clone();
+            let engine = state.engine.clone();
             Task::perform(
-                async move { kernel.search(&q).await },
+                async move { engine.search(&q).await },
                 |results| Message::ResultsReady(Arc::new(results)),
             )
         }
@@ -79,7 +81,10 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
                 }
                 Named::Enter => {
                     if let Some(result) = state.results.get(state.selected) {
-                        (result.on_execute)();
+                        if let Some(on_select) = &result.on_select {
+                            on_select();
+                        }
+                        state.launcher.execute(&result.action);
                     }
                     std::process::exit(0);
                 }
@@ -192,11 +197,11 @@ fn subscription(_state: &KLauncherApp) -> Subscription<Message> {
     })
 }
 
-pub fn run(kernel: Arc<Kernel>) -> iced::Result {
+pub fn run(engine: Arc<dyn SearchEngine>, launcher: Arc<dyn AppLauncher>) -> iced::Result {
     let wc = WindowConfig::launcher();
     iced::application(
         move || {
-            let app = KLauncherApp::new(kernel.clone());
+            let app = KLauncherApp::new(engine.clone(), launcher.clone());
             let focus = iced::widget::operation::focus(INPUT_ID.clone());
             (app, focus)
         },

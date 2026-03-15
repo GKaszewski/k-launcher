@@ -1,4 +1,7 @@
-/// Configuration for the launcher window.
+mod unix_launcher;
+
+pub use unix_launcher::UnixAppLauncher;
+
 pub struct WindowConfig {
     pub width: f32,
     pub height: f32,

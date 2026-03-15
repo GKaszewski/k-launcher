@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 iced = { workspace = true }
 k-launcher-kernel = { path = "../k-launcher-kernel" }
+k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
 k-launcher-ui = { path = "../k-launcher-ui" }
 plugin-apps = { path = "../plugins/plugin-apps" }
 plugin-calc = { path = "../plugins/plugin-calc" }

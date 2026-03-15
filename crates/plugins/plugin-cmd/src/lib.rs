@@ -1,56 +1,5 @@
-use std::{process::{Command, Stdio}, sync::Arc};
-use std::os::unix::process::CommandExt;
-
 use async_trait::async_trait;
-use k_launcher_kernel::{Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
-
-fn parse_term_cmd(s: &str) -> (String, Vec<String>) {
-    let mut parts = s.split_whitespace();
-    let bin = parts.next().unwrap_or("").to_string();
-    let args = parts.map(str::to_string).collect();
-    (bin, args)
-}
-
-fn which(bin: &str) -> bool {
-    Command::new("which")
-        .arg(bin)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-fn resolve_terminal() -> Option<(String, Vec<String>)> {
-    if let Ok(val) = std::env::var("TERM_CMD") {
-        let val = val.trim().to_string();
-        if !val.is_empty() {
-            let (bin, args) = parse_term_cmd(&val);
-            if !bin.is_empty() {
-                return Some((bin, args));
-            }
-        }
-    }
-    if let Ok(val) = std::env::var("TERMINAL") {
-        let bin = val.trim().to_string();
-        if !bin.is_empty() {
-            return Some((bin, vec!["-e".to_string()]));
-        }
-    }
-    for (bin, flag) in &[
-        ("foot", "-e"),
-        ("kitty", "-e"),
-        ("alacritty", "-e"),
-        ("wezterm", "start"),
-        ("konsole", "-e"),
-        ("xterm", "-e"),
-    ] {
-        if which(bin) {
-            return Some((bin.to_string(), vec![flag.to_string()]));
-        }
-    }
-    None
-}
+use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct CmdPlugin;
 
@@ -80,26 +29,14 @@ impl Plugin for CmdPlugin {
         if cmd.is_empty() {
             return vec![];
         }
-        let cmd_owned = cmd.to_string();
         vec![SearchResult {
             id: ResultId::new(format!("cmd-{cmd}")),
             title: ResultTitle::new(format!("Run: {cmd}")),
             description: None,
             icon: None,
             score: Score::new(95),
-            on_execute: Arc::new(move || {
-                let Some((term_bin, term_args)) = resolve_terminal() else { return };
-                let _ = unsafe {
-                    Command::new(&term_bin)
-                        .args(&term_args)
-                        .arg("sh").arg("-c").arg(&cmd_owned)
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .pre_exec(|| { libc::setsid(); Ok(()) })
-                        .spawn()
-                };
-            }),
+            action: LaunchAction::SpawnInTerminal(cmd.to_string()),
+            on_select: None,
         }]
     }
 }
@@ -129,26 +66,5 @@ mod tests {
         let p = CmdPlugin::new();
         assert!(p.search("echo hello").await.is_empty());
         assert!(p.search("firefox").await.is_empty());
-    }
-
-    #[test]
-    fn parse_term_cmd_single_flag() {
-        let (bin, args) = parse_term_cmd("foot -e");
-        assert_eq!(bin, "foot");
-        assert_eq!(args, vec!["-e"]);
-    }
-
-    #[test]
-    fn parse_term_cmd_multiword() {
-        let (bin, args) = parse_term_cmd("wezterm start");
-        assert_eq!(bin, "wezterm");
-        assert_eq!(args, vec!["start"]);
-    }
-
-    #[test]
-    fn parse_term_cmd_no_args() {
-        let (bin, args) = parse_term_cmd("xterm");
-        assert_eq!(bin, "xterm");
-        assert!(args.is_empty());
     }
 }

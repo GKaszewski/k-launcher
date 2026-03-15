@@ -43,6 +43,22 @@ impl Score {
     }
 }
 
+// --- LaunchAction (port) ---
+
+pub enum LaunchAction {
+    SpawnProcess(String),
+    SpawnInTerminal(String),
+    OpenPath(String),
+    CopyToClipboard(String),
+    Custom(Arc<dyn Fn() + Send + Sync>),
+}
+
+// --- AppLauncher port trait ---
+
+pub trait AppLauncher: Send + Sync {
+    fn execute(&self, action: &LaunchAction);
+}
+
 // --- SearchResult ---
 
 pub struct SearchResult {
@@ -51,7 +67,8 @@ pub struct SearchResult {
     pub description: Option<String>,
     pub icon: Option<String>,
     pub score: Score,
-    pub on_execute: Arc<dyn Fn() + Send + Sync>,
+    pub action: LaunchAction,
+    pub on_select: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl std::fmt::Debug for SearchResult {
@@ -73,6 +90,13 @@ pub trait Plugin: Send + Sync {
     async fn search(&self, query: &str) -> Vec<SearchResult>;
 }
 
+// --- SearchEngine port trait ---
+
+#[async_trait]
+pub trait SearchEngine: Send + Sync {
+    async fn search(&self, query: &str) -> Vec<SearchResult>;
+}
+
 // --- Kernel (Application use case) ---
 
 pub struct Kernel {
@@ -91,6 +115,13 @@ impl Kernel {
         flat.sort_by(|a, b| b.score.cmp(&a.score));
         flat.truncate(8);
         flat
+    }
+}
+
+#[async_trait]
+impl SearchEngine for Kernel {
+    async fn search(&self, query: &str) -> Vec<SearchResult> {
+        self.search(query).await
     }
 }
 
@@ -126,7 +157,8 @@ mod tests {
                     description: None,
                     icon: None,
                     score: Score::new(*score),
-                    on_execute: Arc::new(|| {}),
+                    action: LaunchAction::Custom(Arc::new(|| {})),
+                    on_select: None,
                 })
                 .collect()
         }

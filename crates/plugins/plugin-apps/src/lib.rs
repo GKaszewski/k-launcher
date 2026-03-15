@@ -1,10 +1,11 @@
 pub mod frecency;
+#[cfg(target_os = "linux")]
+pub mod linux;
 
-use std::{collections::HashMap, path::Path, process::{Command, Stdio}, sync::Arc};
-use std::os::unix::process::CommandExt;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use k_launcher_kernel::{Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
 
 use crate::frecency::FrecencyStore;
 
@@ -71,7 +72,8 @@ struct CachedEntry {
     keywords_lc: Vec<String>,
     category: Option<String>,
     icon: Option<String>,
-    on_execute: Arc<dyn Fn() + Send + Sync>,
+    exec: String,
+    on_select: Arc<dyn Fn() + Send + Sync>,
 }
 
 // --- Plugin ---
@@ -90,27 +92,15 @@ impl AppsPlugin {
                 let id = format!("app-{}", e.name.as_str());
                 let name_lc = e.name.as_str().to_lowercase();
                 let keywords_lc = e.keywords.iter().map(|k| k.to_lowercase()).collect();
-                let icon = e.icon.as_ref().and_then(|p| resolve_icon_path(p.as_str()));
-                let exec = e.exec.clone();
+                #[cfg(target_os = "linux")]
+                let icon = e.icon.as_ref().and_then(|p| linux::resolve_icon_path(p.as_str()));
+                #[cfg(not(target_os = "linux"))]
+                let icon: Option<String> = None;
+                let exec = e.exec.as_str().to_string();
                 let store = Arc::clone(&frecency);
                 let record_id = id.clone();
-                let on_execute: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+                let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
                     store.record(&record_id);
-                    let parts: Vec<&str> = exec.as_str().split_whitespace().collect();
-                    if let Some((cmd, args)) = parts.split_first() {
-                        let _ = unsafe {
-                            Command::new(cmd)
-                                .args(args)
-                                .stdin(Stdio::null())
-                                .stdout(Stdio::null())
-                                .stderr(Stdio::null())
-                                .pre_exec(|| {
-                                    libc::setsid();
-                                    Ok(())
-                                })
-                                .spawn()
-                        };
-                    }
                 });
                 let cached = CachedEntry {
                     id: id.clone(),
@@ -118,7 +108,8 @@ impl AppsPlugin {
                     keywords_lc,
                     category: e.category,
                     icon,
-                    on_execute,
+                    exec,
+                    on_select,
                     name: e.name,
                 };
                 (id, cached)
@@ -126,19 +117,6 @@ impl AppsPlugin {
             .collect();
         Self { entries, frecency }
     }
-}
-
-fn resolve_icon_path(name: &str) -> Option<String> {
-    if name.starts_with('/') && Path::new(name).exists() {
-        return Some(name.to_string());
-    }
-    let candidates = [
-        format!("/usr/share/pixmaps/{name}.png"),
-        format!("/usr/share/pixmaps/{name}.svg"),
-        format!("/usr/share/icons/hicolor/48x48/apps/{name}.png"),
-        format!("/usr/share/icons/hicolor/scalable/apps/{name}.svg"),
-    ];
-    candidates.into_iter().find(|p| Path::new(p).exists())
 }
 
 fn initials(name_lc: &str) -> String {
@@ -153,7 +131,7 @@ fn score_match(name_lc: &str, query_lc: &str) -> Option<u32> {
     None
 }
 
-fn humanize_category(s: &str) -> String {
+pub(crate) fn humanize_category(s: &str) -> String {
     let mut result = String::new();
     for ch in s.chars() {
         if ch.is_uppercase() && !result.is_empty() {
@@ -183,7 +161,8 @@ impl Plugin for AppsPlugin {
                         description: e.category.clone(),
                         icon: e.icon.clone(),
                         score: Score::new(score),
-                        on_execute: Arc::clone(&e.on_execute),
+                        action: LaunchAction::SpawnProcess(e.exec.clone()),
+                        on_select: Some(Arc::clone(&e.on_select)),
                     })
                 })
                 .collect();
@@ -202,127 +181,12 @@ impl Plugin for AppsPlugin {
                     description: e.category.clone(),
                     icon: e.icon.clone(),
                     score: Score::new(score),
-                    on_execute: Arc::clone(&e.on_execute),
+                    action: LaunchAction::SpawnProcess(e.exec.clone()),
+                    on_select: Some(Arc::clone(&e.on_select)),
                 })
             })
             .collect()
     }
-}
-
-// --- Filesystem source ---
-
-pub struct FsDesktopEntrySource;
-
-impl FsDesktopEntrySource {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for FsDesktopEntrySource {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DesktopEntrySource for FsDesktopEntrySource {
-    fn entries(&self) -> Vec<DesktopEntry> {
-        let mut dirs = Vec::new();
-        if let Ok(xdg) = xdg::BaseDirectories::new() {
-            dirs.push(xdg.get_data_home().join("applications"));
-            for d in xdg.get_data_dirs() {
-                dirs.push(d.join("applications"));
-            }
-        }
-        let mut entries = Vec::new();
-        for dir in &dirs {
-            if let Ok(read_dir) = std::fs::read_dir(dir) {
-                for entry in read_dir.flatten() {
-                    let path = entry.path();
-                    if path.extension().and_then(|e| e.to_str()) != Some("desktop") {
-                        continue;
-                    }
-                    if let Some(de) = parse_desktop_file(&path) {
-                        entries.push(de);
-                    }
-                }
-            }
-        }
-        entries
-    }
-}
-
-fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
-    let content = std::fs::read_to_string(path).ok()?;
-    let mut in_section = false;
-    let mut name: Option<String> = None;
-    let mut exec: Option<String> = None;
-    let mut icon: Option<String> = None;
-    let mut category: Option<String> = None;
-    let mut keywords: Vec<String> = Vec::new();
-    let mut is_application = false;
-    let mut no_display = false;
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line == "[Desktop Entry]" {
-            in_section = true;
-            continue;
-        }
-        if line.starts_with('[') {
-            in_section = false;
-            continue;
-        }
-        if !in_section || line.starts_with('#') || line.is_empty() {
-            continue;
-        }
-        if let Some((key, value)) = line.split_once('=') {
-            match key.trim() {
-                "Name" if name.is_none() => name = Some(value.trim().to_string()),
-                "Exec" if exec.is_none() => exec = Some(value.trim().to_string()),
-                "Icon" if icon.is_none() => icon = Some(value.trim().to_string()),
-                "Type" if !is_application => is_application = value.trim() == "Application",
-                "NoDisplay" => no_display = value.trim().eq_ignore_ascii_case("true"),
-                "Categories" if category.is_none() => {
-                    category = value.trim()
-                        .split(';')
-                        .find(|s| !s.is_empty())
-                        .map(|s| humanize_category(s.trim()));
-                }
-                "Keywords" if keywords.is_empty() => {
-                    keywords = value.trim()
-                        .split(';')
-                        .filter(|s| !s.is_empty())
-                        .map(|s| s.trim().to_string())
-                        .collect();
-                }
-                _ => {}
-            }
-        }
-    }
-
-    if !is_application || no_display {
-        return None;
-    }
-
-    let exec_clean: String = exec?
-        .split_whitespace()
-        .filter(|s| !s.starts_with('%'))
-        .fold(String::new(), |mut acc, s| {
-            if !acc.is_empty() {
-                acc.push(' ');
-            }
-            acc.push_str(s);
-            acc
-        });
-
-    Some(DesktopEntry {
-        name: AppName::new(name?),
-        exec: ExecCommand::new(exec_clean),
-        icon: icon.map(IconPath::new),
-        category,
-        keywords,
-    })
 }
 
 // --- Tests ---

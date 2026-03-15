@@ -1,8 +1,9 @@
+mod platform;
+
 use std::path::Path;
-use std::sync::Arc;
 
 use async_trait::async_trait;
-use k_launcher_kernel::{Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_kernel::{LaunchAction, Plugin, PluginName, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct FilesPlugin;
 
@@ -20,7 +21,7 @@ impl Default for FilesPlugin {
 
 fn expand_query(query: &str) -> Option<String> {
     if query.starts_with("~/") {
-        let home = std::env::var("HOME").ok()?;
+        let home = platform::home_dir()?;
         Some(format!("{}{}", home, &query[1..]))
     } else if query.starts_with('/') {
         Some(query.to_string())
@@ -87,9 +88,8 @@ impl Plugin for FilesPlugin {
                     description: Some(path_str.clone()),
                     icon: None,
                     score: Score::new(50),
-                    on_execute: Arc::new(move || {
-                        let _ = std::process::Command::new("xdg-open").arg(&path_str).spawn();
-                    }),
+                    action: LaunchAction::OpenPath(path_str),
+                    on_select: None,
                 }
             })
             .collect()
