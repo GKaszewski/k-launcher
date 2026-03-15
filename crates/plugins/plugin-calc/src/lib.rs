@@ -23,7 +23,7 @@ fn strip_numeric_separators(expr: &str) -> String {
 
 const MATH_FNS: &[&str] = &[
     "sqrt", "sin", "cos", "tan", "asin", "acos", "atan",
-    "ln", "log", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
+    "ln", "log2", "log10", "exp", "abs", "ceil", "floor", "round",
 ];
 
 fn should_eval(query: &str) -> bool {
@@ -50,7 +50,6 @@ static MATH_CTX: LazyLock<evalexpr::HashMapContext<evalexpr::DefaultNumericTypes
             "acos"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.acos()))),
             "atan"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.atan()))),
             "ln"    => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.ln()))),
-            "log"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
             "log2"  => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log2()))),
             "log10" => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.log10()))),
             "exp"   => Function::new(|a: &Value<DefaultNumericTypes>| Ok(Value::from_float(a.as_number()?.exp()))),
