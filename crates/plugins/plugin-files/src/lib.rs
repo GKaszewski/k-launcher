@@ -71,21 +71,19 @@ impl Plugin for FilesPlugin {
                     .unwrap_or(false)
             })
             .take(20)
-            .enumerate()
-            .map(|(i, entry)| {
+            .map(|entry| {
                 let full_path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
                 let is_dir = full_path.is_dir();
                 let title = if is_dir { format!("{name}/") } else { name };
                 let path_str = full_path.to_string_lossy().to_string();
                 SearchResult {
-                    id: ResultId::new(format!("file-{i}")),
+                    id: ResultId::new(&path_str),
                     title: ResultTitle::new(title),
                     description: Some(path_str.clone()),
                     icon: None,
                     score: Score::new(50),
                     action: LaunchAction::OpenPath(path_str),
-                    on_select: None,
                 }
             })
             .collect()

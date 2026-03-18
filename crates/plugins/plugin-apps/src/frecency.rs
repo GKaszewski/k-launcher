@@ -55,17 +55,17 @@ impl FrecencyStore {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let mut data = self.data.lock().unwrap();
-        let entry = data.entry(id.to_string()).or_insert(Entry {
-            count: 0,
-            last_used: 0,
-        });
-        entry.count += 1;
-        entry.last_used = now;
-        if let Some(parent) = self.path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if let Ok(json) = serde_json::to_string(&*data) {
+        let json = {
+            let mut data = self.data.lock().unwrap();
+            let entry = data.entry(id.to_string()).or_insert(Entry { count: 0, last_used: 0 });
+            entry.count += 1;
+            entry.last_used = now;
+            serde_json::to_string(&*data).ok()
+        }; // lock released here
+        if let Some(json) = json {
+            if let Some(parent) = self.path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
             let _ = std::fs::write(&self.path, json);
         }
     }
@@ -78,14 +78,7 @@ impl FrecencyStore {
             .unwrap_or_default()
             .as_secs();
         let age_secs = now.saturating_sub(entry.last_used);
-        let decay = if age_secs < 3600 {
-            4
-        } else if age_secs < 86400 {
-            2
-        } else {
-            1
-        };
-        entry.count * decay
+        entry.count * decay_factor(age_secs)
     }
 
     pub fn top_ids(&self, n: usize) -> Vec<String> {
@@ -98,18 +91,21 @@ impl FrecencyStore {
             .iter()
             .map(|(id, entry)| {
                 let age_secs = now.saturating_sub(entry.last_used);
-                let decay = if age_secs < 3600 {
-                    4
-                } else if age_secs < 86400 {
-                    2
-                } else {
-                    1
-                };
-                (id.clone(), entry.count * decay)
+                (id.clone(), entry.count * decay_factor(age_secs))
             })
             .collect();
         scored.sort_by(|a, b| b.1.cmp(&a.1));
         scored.into_iter().take(n).map(|(id, _)| id).collect()
+    }
+}
+
+fn decay_factor(age_secs: u64) -> u32 {
+    if age_secs < 3600 {
+        4
+    } else if age_secs < 86400 {
+        2
+    } else {
+        1
     }
 }
 

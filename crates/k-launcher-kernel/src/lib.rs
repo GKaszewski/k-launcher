@@ -50,7 +50,6 @@ pub enum LaunchAction {
     SpawnInTerminal(String),
     OpenPath(String),
     CopyToClipboard(String),
-    Custom(Arc<dyn Fn() + Send + Sync>),
 }
 
 // --- AppLauncher port trait ---
@@ -68,7 +67,6 @@ pub struct SearchResult {
     pub icon: Option<String>,
     pub score: Score,
     pub action: LaunchAction,
-    pub on_select: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl std::fmt::Debug for SearchResult {
@@ -88,6 +86,7 @@ impl std::fmt::Debug for SearchResult {
 pub trait Plugin: Send + Sync {
     fn name(&self) -> &str;
     async fn search(&self, query: &str) -> Vec<SearchResult>;
+    fn on_selected(&self, _id: &ResultId) {}
 }
 
 // --- SearchEngine port trait ---
@@ -95,6 +94,7 @@ pub trait Plugin: Send + Sync {
 #[async_trait]
 pub trait SearchEngine: Send + Sync {
     async fn search(&self, query: &str) -> Vec<SearchResult>;
+    fn on_selected(&self, id: &ResultId);
 }
 
 // --- NullSearchEngine ---
@@ -106,6 +106,7 @@ impl SearchEngine for NullSearchEngine {
     async fn search(&self, _query: &str) -> Vec<SearchResult> {
         vec![]
     }
+    fn on_selected(&self, _id: &ResultId) {}
 }
 
 // --- Kernel (Application use case) ---
@@ -120,6 +121,12 @@ impl Kernel {
         Self {
             plugins,
             max_results,
+        }
+    }
+
+    pub fn on_selected(&self, id: &ResultId) {
+        for plugin in &self.plugins {
+            plugin.on_selected(id);
         }
     }
 
@@ -153,6 +160,9 @@ impl Kernel {
 impl SearchEngine for Kernel {
     async fn search(&self, query: &str) -> Vec<SearchResult> {
         self.search(query).await
+    }
+    fn on_selected(&self, id: &ResultId) {
+        self.on_selected(id);
     }
 }
 
@@ -188,8 +198,7 @@ mod tests {
                     description: None,
                     icon: None,
                     score: Score::new(*score),
-                    action: LaunchAction::Custom(Arc::new(|| {})),
-                    on_select: None,
+                    action: LaunchAction::SpawnProcess("mock".to_string()),
                 })
                 .collect()
         }

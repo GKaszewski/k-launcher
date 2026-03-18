@@ -9,7 +9,6 @@ use iced::{
 
 use k_launcher_config::AppearanceCfg;
 use k_launcher_kernel::{AppLauncher, NullSearchEngine, SearchEngine, SearchResult};
-use k_launcher_os_bridge::WindowConfig;
 
 static INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
     std::sync::LazyLock::new(|| iced::widget::Id::new("search"));
@@ -63,6 +62,7 @@ pub enum Message {
     ResultsReady(u64, Arc<Vec<SearchResult>>),
     KeyPressed(KeyEvent),
     EngineReady(EngineHandle),
+    EngineInitFailed(String),
 }
 
 fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
@@ -86,6 +86,10 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
             if epoch == state.search_epoch {
                 state.results = results;
             }
+            Task::none()
+        }
+        Message::EngineInitFailed(msg) => {
+            state.error = Some(msg);
             Task::none()
         }
         Message::EngineReady(handle) => {
@@ -121,9 +125,7 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
                 }
                 Named::Enter => {
                     if let Some(result) = state.results.get(state.selected) {
-                        if let Some(on_select) = &result.on_select {
-                            on_select();
-                        }
+                        state.engine.on_selected(&result.id);
                         state.launcher.execute(&result.action);
                     }
                     std::process::exit(0);
@@ -277,7 +279,6 @@ pub fn run(
     window_cfg: &k_launcher_config::WindowCfg,
     appearance_cfg: AppearanceCfg,
 ) -> iced::Result {
-    let wc = WindowConfig::from_cfg(window_cfg);
     iced::application(
         move || {
             let app = KLauncherApp::new(
@@ -288,8 +289,15 @@ pub fn run(
             let focus = iced::widget::operation::focus(INPUT_ID.clone());
             let ef = engine_factory.clone();
             let init = Task::perform(
-                async move { tokio::task::spawn_blocking(move || ef()).await.unwrap() },
-                |e| Message::EngineReady(EngineHandle(e)),
+                async move {
+                    tokio::task::spawn_blocking(move || ef())
+                        .await
+                        .map_err(|e| format!("Engine init failed: {e}"))
+                },
+                |result| match result {
+                    Ok(e) => Message::EngineReady(EngineHandle(e)),
+                    Err(msg) => Message::EngineInitFailed(msg),
+                },
             );
             (app, Task::batch([focus, init]))
         },
@@ -299,11 +307,11 @@ pub fn run(
     .title("K-Launcher")
     .subscription(subscription)
     .window(window::Settings {
-        size: Size::new(wc.width, wc.height),
+        size: Size::new(window_cfg.width, window_cfg.height),
         position: window::Position::Centered,
-        decorations: wc.decorations,
-        transparent: wc.transparent,
-        resizable: wc.resizable,
+        decorations: window_cfg.decorations,
+        transparent: window_cfg.transparent,
+        resizable: window_cfg.resizable,
         ..Default::default()
     })
     .run()

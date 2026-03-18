@@ -36,7 +36,6 @@ impl Plugin for CmdPlugin {
             icon: None,
             score: Score::new(95),
             action: LaunchAction::SpawnInTerminal(cmd.to_string()),
-            on_select: None,
         }]
     }
 }

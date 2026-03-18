@@ -2,7 +2,6 @@ use std::sync::{Arc, mpsc};
 
 use egui::{Color32, Key, ViewportCommand};
 use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
-use k_launcher_os_bridge::WindowConfig;
 
 const BG: Color32 = Color32::from_rgba_premultiplied(20, 20, 30, 230);
 const BORDER_COLOR: Color32 = Color32::from_rgb(229, 125, 33);
@@ -83,9 +82,7 @@ impl eframe::App for KLauncherApp {
 
         if launch_selected {
             if let Some(result) = self.results.get(self.selected) {
-                if let Some(on_select) = &result.on_select {
-                    on_select();
-                }
+                self.engine.on_selected(&result.id);
                 self.launcher.execute(&result.action);
             }
             ctx.send_viewport_cmd(ViewportCommand::Close);
@@ -166,17 +163,17 @@ impl eframe::App for KLauncherApp {
 pub fn run(
     engine: Arc<dyn SearchEngine>,
     launcher: Arc<dyn AppLauncher>,
+    window_cfg: &k_launcher_config::WindowCfg,
 ) -> Result<(), eframe::Error> {
-    let wc = WindowConfig::from_cfg(&k_launcher_config::WindowCfg::default());
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let handle = rt.handle().clone();
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([wc.width, wc.height])
-            .with_decorations(wc.decorations)
-            .with_transparent(wc.transparent)
-            .with_resizable(wc.resizable)
+            .with_inner_size([window_cfg.width, window_cfg.height])
+            .with_decorations(window_cfg.decorations)
+            .with_transparent(window_cfg.transparent)
+            .with_resizable(window_cfg.resizable)
             .with_always_on_top(),
         ..Default::default()
     };

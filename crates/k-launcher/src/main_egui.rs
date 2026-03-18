@@ -10,6 +10,7 @@ use plugin_cmd::CmdPlugin;
 use plugin_files::FilesPlugin;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cfg = k_launcher_config::load();
     let launcher = Arc::new(UnixAppLauncher::new());
     let frecency = FrecencyStore::load();
     let kernel: Arc<dyn k_launcher_kernel::SearchEngine> = Arc::new(Kernel::new(
@@ -21,6 +22,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ],
         8,
     ));
-    k_launcher_ui_egui::run(kernel, launcher)?;
+    k_launcher_ui_egui::run(kernel, launcher, &cfg.window)?;
     Ok(())
 }

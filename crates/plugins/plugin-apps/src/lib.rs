@@ -76,7 +76,6 @@ struct CachedEntry {
     category: Option<String>,
     icon: Option<String>,
     exec: String,
-    on_select: Arc<dyn Fn() + Send + Sync>,
 }
 
 // --- Serializable cache data (no closures) ---
@@ -92,24 +91,16 @@ struct CachedEntryData {
 }
 
 fn cache_path() -> Option<PathBuf> {
-    #[cfg(test)]
-    return None;
-    #[cfg(not(test))]
     dirs::cache_dir().map(|d| d.join("k-launcher/apps.bin"))
 }
 
-fn load_from_path(path: &Path, frecency: &Arc<FrecencyStore>) -> Option<HashMap<String, CachedEntry>> {
+fn load_from_path(path: &Path) -> Option<HashMap<String, CachedEntry>> {
     let data = std::fs::read(path).ok()?;
     let (entries_data, _): (Vec<CachedEntryData>, _) =
         bincode::serde::decode_from_slice(&data, bincode::config::standard()).ok()?;
     let map = entries_data
         .into_iter()
         .map(|e| {
-            let store = Arc::clone(frecency);
-            let record_id = e.id.clone();
-            let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
-                store.record(&record_id);
-            });
             let cached = CachedEntry {
                 id: e.id.clone(),
                 name: AppName::new(e.name),
@@ -117,7 +108,6 @@ fn load_from_path(path: &Path, frecency: &Arc<FrecencyStore>) -> Option<HashMap<
                 category: e.category,
                 icon: e.icon,
                 exec: e.exec,
-                on_select,
             };
             (e.id, cached)
         })
@@ -150,7 +140,7 @@ fn build_entries(source: &impl DesktopEntrySource, frecency: &Arc<FrecencyStore>
         .entries()
         .into_iter()
         .map(|e| {
-            let id = format!("app-{}", e.name.as_str());
+            let id = format!("app-{}:{}", e.name.as_str(), e.exec.as_str());
             let keywords_lc = e.keywords.iter().map(|k| k.to_lowercase()).collect();
             #[cfg(target_os = "linux")]
             let icon = e
@@ -160,18 +150,12 @@ fn build_entries(source: &impl DesktopEntrySource, frecency: &Arc<FrecencyStore>
             #[cfg(not(target_os = "linux"))]
             let icon: Option<String> = None;
             let exec = e.exec.as_str().to_string();
-            let store = Arc::clone(frecency);
-            let record_id = id.clone();
-            let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
-                store.record(&record_id);
-            });
             let cached = CachedEntry {
                 id: id.clone(),
                 keywords_lc,
                 category: e.category,
                 icon,
                 exec,
-                on_select,
                 name: e.name,
             };
             (id, cached)
@@ -188,16 +172,25 @@ pub struct AppsPlugin {
 
 impl AppsPlugin {
     pub fn new(source: impl DesktopEntrySource + 'static, frecency: Arc<FrecencyStore>) -> Self {
-        let cached = cache_path().and_then(|p| load_from_path(&p, &frecency));
+        Self::new_impl(source, frecency, cache_path())
+    }
+
+    fn new_impl(
+        source: impl DesktopEntrySource + 'static,
+        frecency: Arc<FrecencyStore>,
+        cp: Option<PathBuf>,
+    ) -> Self {
+        let cached = cp.as_deref().and_then(load_from_path);
 
         let entries = if let Some(from_cache) = cached {
             // Serve cache immediately; refresh in background.
             let map = Arc::new(RwLock::new(from_cache));
             let entries_bg = Arc::clone(&map);
             let frecency_bg = Arc::clone(&frecency);
+            let cp_bg = cp.clone();
             std::thread::spawn(move || {
                 let fresh = build_entries(&source, &frecency_bg);
-                if let Some(path) = cache_path() {
+                if let Some(path) = cp_bg {
                     save_to_path(&path, &fresh);
                 }
                 *entries_bg.write().unwrap() = fresh;
@@ -206,13 +199,18 @@ impl AppsPlugin {
         } else {
             // No cache: build synchronously, then persist.
             let initial = build_entries(&source, &frecency);
-            if let Some(path) = cache_path() {
-                save_to_path(&path, &initial);
+            if let Some(path) = &cp {
+                save_to_path(path, &initial);
             }
             Arc::new(RwLock::new(initial))
         };
 
         Self { entries, frecency }
+    }
+
+    #[cfg(test)]
+    fn new_for_test(source: impl DesktopEntrySource + 'static, frecency: Arc<FrecencyStore>) -> Self {
+        Self::new_impl(source, frecency, None)
     }
 }
 
@@ -267,6 +265,10 @@ impl Plugin for AppsPlugin {
         "apps"
     }
 
+    fn on_selected(&self, id: &ResultId) {
+        self.frecency.record(id.as_str());
+    }
+
     async fn search(&self, query: &str) -> Vec<SearchResult> {
         let entries = self.entries.read().unwrap();
         if query.is_empty() {
@@ -284,7 +286,6 @@ impl Plugin for AppsPlugin {
                         icon: e.icon.clone(),
                         score: Score::new(score),
                         action: LaunchAction::SpawnProcess(e.exec.clone()),
-                        on_select: Some(Arc::clone(&e.on_select)),
                     })
                 })
                 .collect();
@@ -307,7 +308,6 @@ impl Plugin for AppsPlugin {
                     icon: e.icon.clone(),
                     score: Score::new(score),
                     action: LaunchAction::SpawnProcess(e.exec.clone()),
-                    on_select: Some(Arc::clone(&e.on_select)),
                 })
             })
             .collect()
@@ -381,7 +381,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_prefix_match() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Firefox", "firefox")]),
             ephemeral_frecency(),
         );
@@ -391,7 +391,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_no_match_returns_empty() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Firefox", "firefox")]),
             ephemeral_frecency(),
         );
@@ -400,7 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_empty_query_no_frecency_returns_empty() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Firefox", "firefox")]),
             ephemeral_frecency(),
         );
@@ -414,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn score_match_exact_beats_prefix_beats_abbrev_beats_substr() {
+    fn score_match_exact_beats_prefix() {
         let exact = score_match("firefox", "firefox");
         let prefix = score_match("firefox", "fire");
         let abbrev = score_match("gnu firefox", "gf");
@@ -428,7 +428,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_abbreviation_match() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Visual Studio Code", "code")]),
             ephemeral_frecency(),
         );
@@ -440,7 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_keyword_match() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with_keywords(vec![("Code", "code", vec!["editor", "ide"])]),
             ephemeral_frecency(),
         );
@@ -451,7 +451,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_fuzzy_typo_match() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Firefox", "firefox")]),
             ephemeral_frecency(),
         );
@@ -472,7 +472,7 @@ mod tests {
 
     #[tokio::test]
     async fn apps_category_appears_in_description() {
-        let p = AppsPlugin::new(
+        let p = AppsPlugin::new_for_test(
             MockSource::with_categories(vec![("Code", "code", "Text Editor")]),
             ephemeral_frecency(),
         );
@@ -483,10 +483,10 @@ mod tests {
     #[tokio::test]
     async fn apps_empty_query_returns_top_frecent() {
         let frecency = ephemeral_frecency();
-        frecency.record("app-Code");
-        frecency.record("app-Code");
-        frecency.record("app-Firefox");
-        let p = AppsPlugin::new(
+        frecency.record("app-Code:code");
+        frecency.record("app-Code:code");
+        frecency.record("app-Firefox:firefox");
+        let p = AppsPlugin::new_for_test(
             MockSource::with(vec![("Firefox", "firefox"), ("Code", "code")]),
             frecency,
         );
@@ -507,8 +507,8 @@ mod tests {
         save_to_path(&cache_file, &entries);
 
         // Load from temp path — should contain Firefox
-        let loaded = load_from_path(&cache_file, &frecency).unwrap();
-        assert!(loaded.contains_key("app-Firefox"));
+        let loaded = load_from_path(&cache_file).unwrap();
+        assert!(loaded.contains_key("app-Firefox:firefox"));
 
         std::fs::remove_file(&cache_file).ok();
     }

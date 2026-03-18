@@ -90,7 +90,6 @@ impl Plugin for CalcPlugin {
                     icon: None,
                     score: Score::new(90),
                     action: LaunchAction::CopyToClipboard(value_str),
-                    on_select: None,
                 }]
             }
             _ => vec![],

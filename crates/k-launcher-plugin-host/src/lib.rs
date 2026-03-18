@@ -105,7 +105,15 @@ impl Plugin for ExternalPlugin {
         }
 
         let result = match guard.as_mut() {
-            Some(io) => do_search(io, query).await,
+            Some(io) => tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                do_search(io, query),
+            )
+            .await
+            .unwrap_or_else(|_| {
+                tracing::warn!("plugin {} search timed out", self.name);
+                Err("timeout".into())
+            }),
             None => unreachable!(),
         };
 
@@ -125,7 +133,6 @@ impl Plugin for ExternalPlugin {
                         }
                         ExternalAction::OpenPath { path } => LaunchAction::OpenPath(path),
                     },
-                    on_select: None,
                 })
                 .collect(),
             Err(e) => {

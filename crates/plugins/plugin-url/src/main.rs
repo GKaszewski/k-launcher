@@ -10,7 +10,7 @@ struct Query {
 #[derive(Serialize)]
 struct Action {
     r#type: &'static str,
-    cmd: String,
+    path: String,
 }
 
 #[derive(Serialize)]
@@ -45,8 +45,8 @@ fn search(query: &str) -> Vec<Result> {
         description: url.clone(),
         score: 95,
         action: Action {
-            r#type: "SpawnProcess",
-            cmd: format!("xdg-open {url}"),
+            r#type: "OpenPath",
+            path: url.clone(),
         },
     }]
 }
@@ -112,7 +112,7 @@ mod tests {
     fn search_returns_result() {
         let results = search("https://example.com");
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].action.cmd, "xdg-open https://example.com");
+        assert_eq!(results[0].action.path, "https://example.com");
     }
 
     #[test]
@@ -124,7 +124,7 @@ mod tests {
     fn result_serializes() {
         let results = search("https://example.com");
         let json = serde_json::to_string(&results).unwrap();
-        assert!(json.contains("SpawnProcess"));
-        assert!(json.contains("xdg-open"));
+        assert!(json.contains("OpenPath"));
+        assert!(json.contains("https://example.com"));
     }
 }

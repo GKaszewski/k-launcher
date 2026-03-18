@@ -2082,7 +2082,6 @@ dependencies = [
 name = "k-launcher-os-bridge"
 version = "0.1.0"
 dependencies = [
- "k-launcher-config",
  "k-launcher-kernel",
  "libc",
 ]
@@ -2118,7 +2117,6 @@ dependencies = [
  "egui",
  "k-launcher-config",
  "k-launcher-kernel",
- "k-launcher-os-bridge",
  "tokio",
 ]
 

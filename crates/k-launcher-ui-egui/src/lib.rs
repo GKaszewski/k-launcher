@@ -7,6 +7,7 @@ use k_launcher_kernel::{AppLauncher, SearchEngine};
 pub fn run(
     engine: Arc<dyn SearchEngine>,
     launcher: Arc<dyn AppLauncher>,
+    window_cfg: &k_launcher_config::WindowCfg,
 ) -> Result<(), eframe::Error> {
-    app::run(engine, launcher)
+    app::run(engine, launcher, window_cfg)
 }

@@ -3,6 +3,29 @@ use std::process::{Command, Stdio};
 
 use k_launcher_kernel::{AppLauncher, LaunchAction};
 
+fn shell_split(cmd: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+
+    for ch in cmd.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            ' ' | '\t' if !in_quotes => {
+                if !current.is_empty() {
+                    tokens.push(current.clone());
+                    current.clear();
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
 fn parse_term_cmd(s: &str) -> (String, Vec<String>) {
     let mut parts = s.split_whitespace();
     let bin = parts.next().unwrap_or("").to_string();
@@ -69,7 +92,7 @@ impl AppLauncher for UnixAppLauncher {
     fn execute(&self, action: &LaunchAction) {
         match action {
             LaunchAction::SpawnProcess(cmd) => {
-                let parts: Vec<&str> = cmd.split_whitespace().collect();
+                let parts = shell_split(cmd);
                 if let Some((bin, args)) = parts.split_first() {
                     let _ = unsafe {
                         Command::new(bin)
@@ -121,7 +144,50 @@ impl AppLauncher for UnixAppLauncher {
                     }
                 }
             }
-            LaunchAction::Custom(f) => f(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shell_split;
+
+    #[test]
+    fn split_simple() {
+        assert_eq!(shell_split("firefox"), vec!["firefox"]);
+    }
+
+    #[test]
+    fn split_with_args() {
+        assert_eq!(
+            shell_split("firefox --new-window"),
+            vec!["firefox", "--new-window"]
+        );
+    }
+
+    #[test]
+    fn split_quoted_path() {
+        assert_eq!(
+            shell_split(r#""My App" --flag"#),
+            vec!["My App", "--flag"]
+        );
+    }
+
+    #[test]
+    fn split_quoted_with_spaces() {
+        assert_eq!(
+            shell_split(r#"env "FOO BAR" baz"#),
+            vec!["env", "FOO BAR", "baz"]
+        );
+    }
+
+    #[test]
+    fn split_empty() {
+        assert!(shell_split("").is_empty());
+    }
+
+    #[test]
+    fn split_extra_whitespace() {
+        assert_eq!(shell_split("  a   b  "), vec!["a", "b"]);
     }
 }
