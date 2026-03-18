@@ -13,6 +13,19 @@ members = [
     "crates/k-launcher-ui-egui",
     "crates/plugins/plugin-url",
 ]
+default-members = [
+    "crates/k-launcher",
+    "crates/k-launcher-config",
+    "crates/k-launcher-kernel",
+    "crates/k-launcher-os-bridge",
+    "crates/k-launcher-plugin-host",
+    "crates/k-launcher-ui",
+    "crates/plugins/plugin-apps",
+    "crates/plugins/plugin-calc",
+    "crates/plugins/plugin-cmd",
+    "crates/plugins/plugin-files",
+    "crates/plugins/plugin-url",
+]
 resolver = "2"
 
 [workspace.dependencies]

@@ -8,11 +8,20 @@ use iced::{
 };
 
 use k_launcher_config::AppearanceCfg;
-use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
+use k_launcher_kernel::{AppLauncher, NullSearchEngine, SearchEngine, SearchResult};
 use k_launcher_os_bridge::WindowConfig;
 
 static INPUT_ID: std::sync::LazyLock<iced::widget::Id> =
     std::sync::LazyLock::new(|| iced::widget::Id::new("search"));
+
+#[derive(Clone)]
+pub(crate) struct EngineHandle(Arc<dyn SearchEngine>);
+
+impl std::fmt::Debug for EngineHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("EngineHandle")
+    }
+}
 
 fn rgba(c: &[f32; 4]) -> Color {
     Color::from_rgba8(c[0] as u8, c[1] as u8, c[2] as u8, c[3])
@@ -53,6 +62,7 @@ pub enum Message {
     QueryChanged(String),
     ResultsReady(u64, Arc<Vec<SearchResult>>),
     KeyPressed(KeyEvent),
+    EngineReady(EngineHandle),
 }
 
 fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
@@ -75,6 +85,14 @@ fn update(state: &mut KLauncherApp, message: Message) -> Task<Message> {
         Message::ResultsReady(epoch, results) => {
             if epoch == state.search_epoch {
                 state.results = results;
+            }
+            Task::none()
+        }
+        Message::EngineReady(handle) => {
+            state.engine = handle.0;
+            if !state.query.is_empty() {
+                let q = state.query.clone();
+                return Task::done(Message::QueryChanged(q));
             }
             Task::none()
         }
@@ -254,7 +272,7 @@ fn subscription(_state: &KLauncherApp) -> Subscription<Message> {
 }
 
 pub fn run(
-    engine: Arc<dyn SearchEngine>,
+    engine_factory: Arc<dyn Fn() -> Arc<dyn SearchEngine> + Send + Sync>,
     launcher: Arc<dyn AppLauncher>,
     window_cfg: &k_launcher_config::WindowCfg,
     appearance_cfg: AppearanceCfg,
@@ -262,9 +280,18 @@ pub fn run(
     let wc = WindowConfig::from_cfg(window_cfg);
     iced::application(
         move || {
-            let app = KLauncherApp::new(engine.clone(), launcher.clone(), appearance_cfg.clone());
+            let app = KLauncherApp::new(
+                Arc::new(NullSearchEngine),
+                launcher.clone(),
+                appearance_cfg.clone(),
+            );
             let focus = iced::widget::operation::focus(INPUT_ID.clone());
-            (app, focus)
+            let ef = engine_factory.clone();
+            let init = Task::perform(
+                async move { tokio::task::spawn_blocking(move || ef()).await.unwrap() },
+                |e| Message::EngineReady(EngineHandle(e)),
+            );
+            (app, Task::batch([focus, init]))
         },
         update,
         view,
