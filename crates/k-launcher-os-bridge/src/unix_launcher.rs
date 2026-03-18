@@ -167,10 +167,7 @@ mod tests {
 
     #[test]
     fn split_quoted_path() {
-        assert_eq!(
-            shell_split(r#""My App" --flag"#),
-            vec!["My App", "--flag"]
-        );
+        assert_eq!(shell_split(r#""My App" --flag"#), vec!["My App", "--flag"]);
     }
 
     #[test]

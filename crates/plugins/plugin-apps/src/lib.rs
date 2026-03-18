@@ -135,7 +135,10 @@ fn save_to_path(path: &Path, entries: &HashMap<String, CachedEntry>) {
     }
 }
 
-fn build_entries(source: &impl DesktopEntrySource, _frecency: &Arc<FrecencyStore>) -> HashMap<String, CachedEntry> {
+fn build_entries(
+    source: &impl DesktopEntrySource,
+    _frecency: &Arc<FrecencyStore>,
+) -> HashMap<String, CachedEntry> {
     source
         .entries()
         .into_iter()
@@ -209,7 +212,10 @@ impl AppsPlugin {
     }
 
     #[cfg(test)]
-    fn new_for_test(source: impl DesktopEntrySource + 'static, frecency: Arc<FrecencyStore>) -> Self {
+    fn new_for_test(
+        source: impl DesktopEntrySource + 'static,
+        frecency: Arc<FrecencyStore>,
+    ) -> Self {
         Self::new_impl(source, frecency, None)
     }
 }
@@ -498,8 +504,8 @@ mod tests {
     #[test]
     fn apps_loads_from_cache_when_source_is_empty() {
         let frecency = ephemeral_frecency();
-        let cache_file = std::env::temp_dir()
-            .join(format!("k-launcher-test-{}.bin", std::process::id()));
+        let cache_file =
+            std::env::temp_dir().join(format!("k-launcher-test-{}.bin", std::process::id()));
 
         // Build entries from a real source and save to temp path
         let source = MockSource::with(vec![("Firefox", "firefox")]);

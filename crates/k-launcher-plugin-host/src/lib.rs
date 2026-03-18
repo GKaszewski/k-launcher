@@ -105,15 +105,14 @@ impl Plugin for ExternalPlugin {
         }
 
         let result = match guard.as_mut() {
-            Some(io) => tokio::time::timeout(
-                std::time::Duration::from_secs(5),
-                do_search(io, query),
-            )
-            .await
-            .unwrap_or_else(|_| {
-                tracing::warn!("plugin {} search timed out", self.name);
-                Err("timeout".into())
-            }),
+            Some(io) => {
+                tokio::time::timeout(std::time::Duration::from_secs(5), do_search(io, query))
+                    .await
+                    .unwrap_or_else(|_| {
+                        tracing::warn!("plugin {} search timed out", self.name);
+                        Err("timeout".into())
+                    })
+            }
             None => unreachable!(),
         };
 

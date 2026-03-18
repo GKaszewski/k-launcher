@@ -57,7 +57,10 @@ impl FrecencyStore {
             .as_secs();
         let json = {
             let mut data = self.data.lock().unwrap();
-            let entry = data.entry(id.to_string()).or_insert(Entry { count: 0, last_used: 0 });
+            let entry = data.entry(id.to_string()).or_insert(Entry {
+                count: 0,
+                last_used: 0,
+            });
             entry.count += 1;
             entry.last_used = now;
             serde_json::to_string(&*data).ok()
