@@ -9,6 +9,8 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = { workspace = true }
+bincode = { workspace = true }
+dirs = { workspace = true }
 k-launcher-kernel = { path = "../../k-launcher-kernel" }
 nucleo-matcher = "0.3"
 serde = { workspace = true }

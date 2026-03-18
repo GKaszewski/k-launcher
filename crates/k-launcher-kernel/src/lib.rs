@@ -97,6 +97,17 @@ pub trait SearchEngine: Send + Sync {
     async fn search(&self, query: &str) -> Vec<SearchResult>;
 }
 
+// --- NullSearchEngine ---
+
+pub struct NullSearchEngine;
+
+#[async_trait]
+impl SearchEngine for NullSearchEngine {
+    async fn search(&self, _query: &str) -> Vec<SearchResult> {
+        vec![]
+    }
+}
+
 // --- Kernel (Application use case) ---
 
 pub struct Kernel {
@@ -113,9 +124,25 @@ impl Kernel {
     }
 
     pub async fn search(&self, query: &str) -> Vec<SearchResult> {
-        let futures = self.plugins.iter().map(|p| p.search(query));
-        let nested: Vec<Vec<SearchResult>> = join_all(futures).await;
-        let mut flat: Vec<SearchResult> = nested.into_iter().flatten().collect();
+        use futures::FutureExt;
+        use std::panic::AssertUnwindSafe;
+
+        let futures = self
+            .plugins
+            .iter()
+            .map(|p| AssertUnwindSafe(p.search(query)).catch_unwind());
+        let outcomes = join_all(futures).await;
+        let mut flat: Vec<SearchResult> = outcomes
+            .into_iter()
+            .zip(self.plugins.iter())
+            .flat_map(|(outcome, plugin)| match outcome {
+                Ok(results) => results,
+                Err(_) => {
+                    tracing::error!(plugin = plugin.name(), "plugin panicked during search");
+                    vec![]
+                }
+            })
+            .collect();
         flat.sort_by(|a, b| b.score.cmp(&a.score));
         flat.truncate(self.max_results);
         flat
@@ -201,6 +228,29 @@ mod tests {
         assert_eq!(results[0].score.value(), 10);
         assert_eq!(results[1].score.value(), 7);
         assert_eq!(results[2].score.value(), 5);
+    }
+
+    struct PanicPlugin;
+
+    #[async_trait]
+    impl Plugin for PanicPlugin {
+        fn name(&self) -> &str {
+            "panic-plugin"
+        }
+
+        async fn search(&self, _query: &str) -> Vec<SearchResult> {
+            panic!("test panic");
+        }
+    }
+
+    #[tokio::test]
+    async fn kernel_continues_after_plugin_panic() {
+        let panic_plugin = Arc::new(PanicPlugin);
+        let normal_plugin = Arc::new(MockPlugin::returns(vec![("survivor", 5)]));
+        let k = Kernel::new(vec![panic_plugin, normal_plugin], 8);
+        let results = k.search("q").await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title.as_str(), "survivor");
     }
 
     #[tokio::test]

@@ -2,7 +2,11 @@ pub mod frecency;
 #[cfg(target_os = "linux")]
 pub mod linux;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
 
 use async_trait::async_trait;
 use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
@@ -75,46 +79,139 @@ struct CachedEntry {
     on_select: Arc<dyn Fn() + Send + Sync>,
 }
 
+// --- Serializable cache data (no closures) ---
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CachedEntryData {
+    id: String,
+    name: String,
+    keywords_lc: Vec<String>,
+    category: Option<String>,
+    icon: Option<String>,
+    exec: String,
+}
+
+fn cache_path() -> Option<PathBuf> {
+    #[cfg(test)]
+    return None;
+    #[cfg(not(test))]
+    dirs::cache_dir().map(|d| d.join("k-launcher/apps.bin"))
+}
+
+fn load_from_path(path: &Path, frecency: &Arc<FrecencyStore>) -> Option<HashMap<String, CachedEntry>> {
+    let data = std::fs::read(path).ok()?;
+    let (entries_data, _): (Vec<CachedEntryData>, _) =
+        bincode::serde::decode_from_slice(&data, bincode::config::standard()).ok()?;
+    let map = entries_data
+        .into_iter()
+        .map(|e| {
+            let store = Arc::clone(frecency);
+            let record_id = e.id.clone();
+            let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+                store.record(&record_id);
+            });
+            let cached = CachedEntry {
+                id: e.id.clone(),
+                name: AppName::new(e.name),
+                keywords_lc: e.keywords_lc,
+                category: e.category,
+                icon: e.icon,
+                exec: e.exec,
+                on_select,
+            };
+            (e.id, cached)
+        })
+        .collect();
+    Some(map)
+}
+
+fn save_to_path(path: &Path, entries: &HashMap<String, CachedEntry>) {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).ok();
+    }
+    let data: Vec<CachedEntryData> = entries
+        .values()
+        .map(|e| CachedEntryData {
+            id: e.id.clone(),
+            name: e.name.as_str().to_string(),
+            keywords_lc: e.keywords_lc.clone(),
+            category: e.category.clone(),
+            icon: e.icon.clone(),
+            exec: e.exec.clone(),
+        })
+        .collect();
+    if let Ok(encoded) = bincode::serde::encode_to_vec(&data, bincode::config::standard()) {
+        std::fs::write(path, encoded).ok();
+    }
+}
+
+fn build_entries(source: &impl DesktopEntrySource, frecency: &Arc<FrecencyStore>) -> HashMap<String, CachedEntry> {
+    source
+        .entries()
+        .into_iter()
+        .map(|e| {
+            let id = format!("app-{}", e.name.as_str());
+            let keywords_lc = e.keywords.iter().map(|k| k.to_lowercase()).collect();
+            #[cfg(target_os = "linux")]
+            let icon = e
+                .icon
+                .as_ref()
+                .and_then(|p| linux::resolve_icon_path(p.as_str()));
+            #[cfg(not(target_os = "linux"))]
+            let icon: Option<String> = None;
+            let exec = e.exec.as_str().to_string();
+            let store = Arc::clone(frecency);
+            let record_id = id.clone();
+            let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+                store.record(&record_id);
+            });
+            let cached = CachedEntry {
+                id: id.clone(),
+                keywords_lc,
+                category: e.category,
+                icon,
+                exec,
+                on_select,
+                name: e.name,
+            };
+            (id, cached)
+        })
+        .collect()
+}
+
 // --- Plugin ---
 
 pub struct AppsPlugin {
-    entries: HashMap<String, CachedEntry>,
+    entries: Arc<RwLock<HashMap<String, CachedEntry>>>,
     frecency: Arc<FrecencyStore>,
 }
 
 impl AppsPlugin {
-    pub fn new(source: impl DesktopEntrySource, frecency: Arc<FrecencyStore>) -> Self {
-        let entries = source
-            .entries()
-            .into_iter()
-            .map(|e| {
-                let id = format!("app-{}", e.name.as_str());
-                let keywords_lc = e.keywords.iter().map(|k| k.to_lowercase()).collect();
-                #[cfg(target_os = "linux")]
-                let icon = e
-                    .icon
-                    .as_ref()
-                    .and_then(|p| linux::resolve_icon_path(p.as_str()));
-                #[cfg(not(target_os = "linux"))]
-                let icon: Option<String> = None;
-                let exec = e.exec.as_str().to_string();
-                let store = Arc::clone(&frecency);
-                let record_id = id.clone();
-                let on_select: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
-                    store.record(&record_id);
-                });
-                let cached = CachedEntry {
-                    id: id.clone(),
-                    keywords_lc,
-                    category: e.category,
-                    icon,
-                    exec,
-                    on_select,
-                    name: e.name,
-                };
-                (id, cached)
-            })
-            .collect();
+    pub fn new(source: impl DesktopEntrySource + 'static, frecency: Arc<FrecencyStore>) -> Self {
+        let cached = cache_path().and_then(|p| load_from_path(&p, &frecency));
+
+        let entries = if let Some(from_cache) = cached {
+            // Serve cache immediately; refresh in background.
+            let map = Arc::new(RwLock::new(from_cache));
+            let entries_bg = Arc::clone(&map);
+            let frecency_bg = Arc::clone(&frecency);
+            std::thread::spawn(move || {
+                let fresh = build_entries(&source, &frecency_bg);
+                if let Some(path) = cache_path() {
+                    save_to_path(&path, &fresh);
+                }
+                *entries_bg.write().unwrap() = fresh;
+            });
+            map
+        } else {
+            // No cache: build synchronously, then persist.
+            let initial = build_entries(&source, &frecency);
+            if let Some(path) = cache_path() {
+                save_to_path(&path, &initial);
+            }
+            Arc::new(RwLock::new(initial))
+        };
+
         Self { entries, frecency }
     }
 }
@@ -171,13 +268,14 @@ impl Plugin for AppsPlugin {
     }
 
     async fn search(&self, query: &str) -> Vec<SearchResult> {
+        let entries = self.entries.read().unwrap();
         if query.is_empty() {
             return self
                 .frecency
                 .top_ids(5)
                 .iter()
                 .filter_map(|id| {
-                    let e = self.entries.get(id)?;
+                    let e = entries.get(id)?;
                     let score = self.frecency.frecency_score(id).max(1);
                     Some(SearchResult {
                         id: ResultId::new(id),
@@ -193,7 +291,7 @@ impl Plugin for AppsPlugin {
         }
 
         let query_lc = query.to_lowercase();
-        self.entries
+        entries
             .values()
             .filter_map(|e| {
                 let score = score_match(e.name.as_str(), query).or_else(|| {
@@ -395,5 +493,23 @@ mod tests {
         let results = p.search("").await;
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].title.as_str(), "Code");
+    }
+
+    #[test]
+    fn apps_loads_from_cache_when_source_is_empty() {
+        let frecency = ephemeral_frecency();
+        let cache_file = std::env::temp_dir()
+            .join(format!("k-launcher-test-{}.bin", std::process::id()));
+
+        // Build entries from a real source and save to temp path
+        let source = MockSource::with(vec![("Firefox", "firefox")]);
+        let entries = build_entries(&source, &frecency);
+        save_to_path(&cache_file, &entries);
+
+        // Load from temp path — should contain Firefox
+        let loaded = load_from_path(&cache_file, &frecency).unwrap();
+        assert!(loaded.contains_key("app-Firefox"));
+
+        std::fs::remove_file(&cache_file).ok();
     }
 }

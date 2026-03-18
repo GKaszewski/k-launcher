@@ -34,5 +34,8 @@ plugin-apps = { path = "../plugins/plugin-apps" }
 plugin-calc = { path = "../plugins/plugin-calc" }
 plugin-cmd = { path = "../plugins/plugin-cmd" }
 plugin-files = { path = "../plugins/plugin-files" }
+dirs = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
