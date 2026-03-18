@@ -135,7 +135,7 @@ fn save_to_path(path: &Path, entries: &HashMap<String, CachedEntry>) {
     }
 }
 
-fn build_entries(source: &impl DesktopEntrySource, frecency: &Arc<FrecencyStore>) -> HashMap<String, CachedEntry> {
+fn build_entries(source: &impl DesktopEntrySource, _frecency: &Arc<FrecencyStore>) -> HashMap<String, CachedEntry> {
     source
         .entries()
         .into_iter()
