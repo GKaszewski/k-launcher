@@ -10,6 +10,10 @@ struct KnownTerminal {
 
 const KNOWN_TERMINALS: &[KnownTerminal] = &[
     KnownTerminal {
+        bin: "ghostty",
+        exec_flag: "-e",
+    },
+    KnownTerminal {
         bin: "foot",
         exec_flag: "-e",
     },
