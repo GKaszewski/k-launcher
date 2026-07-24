@@ -13,6 +13,9 @@ build-egui:
 dev:
 	RUST_LOG=debug cargo run
 
+dev-egui:
+	RUST_LOG=debug cargo run -p k-launcher --features egui --bin k-launcher-egui
+
 check:
 	cargo fmt --all -- --check
 	cargo clippy --workspace -- -D warnings
