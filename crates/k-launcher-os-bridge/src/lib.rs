@@ -1,2 +1,7 @@
-mod unix_launcher;
-pub use unix_launcher::UnixAppLauncher;
+mod launcher;
+mod shell;
+mod spawn;
+mod terminal;
+
+pub use launcher::UnixAppLauncher;
+pub use shell::shell_split;

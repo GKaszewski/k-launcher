@@ -1,4 +1,4 @@
-.PHONY: build build-egui dev check clippy fmt fmt-check test run run-egui install install-egui clean
+.PHONY: build build-egui dev check test fmt run run-egui install install-egui clean
 
 RELEASE_BIN := target/release/k-launcher
 EGUI_BIN    := target/release/k-launcher-egui
@@ -11,22 +11,18 @@ build-egui:
 	cargo build --release -p k-launcher --features egui --bin k-launcher-egui
 
 dev:
-	cargo build
+	RUST_LOG=debug cargo run
 
 check:
-	cargo check --workspace
-
-clippy:
-	cargo clippy --workspace -- -D warnings
-
-fmt:
-	cargo fmt --all
-
-fmt-check:
 	cargo fmt --all -- --check
+	cargo clippy --workspace -- -D warnings
+	cargo test --workspace
 
 test:
 	cargo test --workspace
+
+fmt:
+	cargo fmt --all
 
 run:
 	cargo run --release

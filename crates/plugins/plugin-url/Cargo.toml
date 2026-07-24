@@ -1,7 +1,11 @@
 [package]
 name = "plugin-url"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
+
+[lib]
+name = "plugin_url"
+path = "src/lib.rs"
 
 [[bin]]
 name = "k-launcher-plugin-url"
@@ -9,4 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
 serde_json = { workspace = true }

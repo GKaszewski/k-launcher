@@ -1,0 +1,52 @@
+# k-launcher configuration
+# Copy to ~/.config/k-launcher/config.toml
+
+[window]
+width = 600.0
+height = 400.0
+decorations = false
+transparent = true
+resizable = false
+
+[appearance]
+background_rgba = [20.0, 20.0, 30.0, 0.9]
+border_rgba = [229.0, 125.0, 33.0, 1.0]
+border_width = 1.0
+border_radius = 8.0
+search_font_size = 18.0
+title_size = 15.0
+desc_size = 12.0
+row_radius = 4.0
+placeholder = "Search apps, type > for commands, = for math"
+selected_row_rgba = [229.0, 125.0, 33.0, 1.0]
+unselected_row_rgba = [255.0, 255.0, 255.0, 0.07]
+description_rgba = [210.0, 215.0, 230.0, 1.0]
+no_results_rgba = [180.0, 180.0, 200.0, 0.5]
+error_rgba = [255.0, 80.0, 80.0, 1.0]
+icon_size = 24.0
+
+[search]
+max_results = 8
+debounce_ms = 50
+frecency_compact_threshold = 50
+
+[plugins]
+calc = true
+cmd = true
+files = true
+apps = true
+
+# External plugins (can have multiple [[plugins.external]] blocks)
+# [[plugins.external]]
+# name = "my-plugin"
+# path = "/path/to/plugin-binary"
+# args = []
+# timeout_secs = 5
+
+[logging]
+max_log_files = 7
+
+[terminal]
+# Override terminal emulator for > commands
+# Default: auto-detect from $TERM_CMD, $TERMINAL, or PATH
+# cmd = "kitty -e"

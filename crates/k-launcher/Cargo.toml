@@ -1,6 +1,6 @@
 [package]
 name = "k-launcher"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 default-run = "k-launcher"
 
@@ -23,19 +23,21 @@ required-features = ["egui"]
 egui = ["dep:k-launcher-ui-egui"]
 
 [dependencies]
-iced = { workspace = true }
-k-launcher-config = { path = "../k-launcher-config" }
-k-launcher-kernel = { path = "../k-launcher-kernel" }
-k-launcher-plugin-host = { path = "../k-launcher-plugin-host" }
-k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
-k-launcher-ui = { path = "../k-launcher-ui" }
-k-launcher-ui-egui = { path = "../k-launcher-ui-egui", optional = true }
-plugin-apps = { path = "../plugins/plugin-apps" }
-plugin-calc = { path = "../plugins/plugin-calc" }
-plugin-cmd = { path = "../plugins/plugin-cmd" }
-plugin-files = { path = "../plugins/plugin-files" }
+k-launcher-config = { workspace = true }
+k-launcher-kernel = { workspace = true }
+k-launcher-domain = { workspace = true }
+k-launcher-plugin-host = { workspace = true }
+k-launcher-os-bridge = { workspace = true }
+k-launcher-ui = { workspace = true }
+k-launcher-ui-egui = { workspace = true, optional = true }
+plugin-apps = { workspace = true }
+plugin-calc = { workspace = true }
+plugin-cmd = { workspace = true }
+plugin-files = { workspace = true }
 dirs = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+ctrlc = { workspace = true }
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

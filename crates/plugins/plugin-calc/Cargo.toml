@@ -1,6 +1,6 @@
 [package]
 name = "plugin-calc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [lib]
@@ -10,5 +10,9 @@ path = "src/lib.rs"
 [dependencies]
 async-trait = { workspace = true }
 evalexpr = "13"
-k-launcher-kernel = { path = "../../k-launcher-kernel" }
+k-launcher-domain = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+k-launcher-domain = { workspace = true }
 tokio = { workspace = true }

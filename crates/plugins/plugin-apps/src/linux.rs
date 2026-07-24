@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::humanize_category;
+use crate::scoring::humanize_category;
 use crate::{AppName, DesktopEntry, DesktopEntrySource, ExecCommand, IconPath};
 
 pub struct FsDesktopEntrySource;
@@ -45,7 +45,7 @@ impl DesktopEntrySource for FsDesktopEntrySource {
     }
 }
 
-pub(crate) fn clean_exec(exec: &str) -> String {
+pub fn clean_exec(exec: &str) -> String {
     // Tokenize respecting double-quoted strings, then filter field codes.
     let mut tokens: Vec<String> = Vec::new();
     let mut chars = exec.chars().peekable();
@@ -99,16 +99,18 @@ fn is_field_code(s: &str) -> bool {
     b.len() == 2 && b[0] == b'%' && b[1].is_ascii_alphabetic()
 }
 
+const ICON_LOOKUP_SIZE: u16 = 48;
+const ICON_THEMES: &[&str] = &["hicolor", "Adwaita", "breeze", "Papirus"];
+const PIXMAPS_DIR: &str = "/usr/share/pixmaps";
+
 pub fn resolve_icon_path(name: &str) -> Option<String> {
     if name.starts_with('/') && Path::new(name).exists() {
         return Some(name.to_string());
     }
-    // Try linicon freedesktop theme traversal
-    let themes = ["hicolor", "Adwaita", "breeze", "Papirus"];
-    for theme in &themes {
+    for theme in ICON_THEMES {
         if let Some(icon_path) = linicon::lookup_icon(name)
             .from_theme(theme)
-            .with_size(48)
+            .with_size(ICON_LOOKUP_SIZE)
             .find_map(|r| r.ok())
         {
             return Some(icon_path.path.to_string_lossy().into_owned());
@@ -116,8 +118,8 @@ pub fn resolve_icon_path(name: &str) -> Option<String> {
     }
     // Fallback to pixmaps
     let candidates = [
-        format!("/usr/share/pixmaps/{name}.png"),
-        format!("/usr/share/pixmaps/{name}.svg"),
+        format!("{PIXMAPS_DIR}/{name}.png"),
+        format!("{PIXMAPS_DIR}/{name}.svg"),
     ];
     candidates.into_iter().find(|p| Path::new(p).exists())
 }
@@ -186,32 +188,4 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopEntry> {
         category,
         keywords,
     })
-}
-
-#[cfg(test)]
-mod exec_tests {
-    use super::clean_exec;
-
-    #[test]
-    fn strips_bare_field_code() {
-        assert_eq!(clean_exec("app --file %f"), "app --file");
-    }
-
-    #[test]
-    fn strips_multiple_field_codes() {
-        assert_eq!(clean_exec("app %U --flag"), "app --flag");
-    }
-
-    #[test]
-    fn preserves_quoted_value() {
-        assert_eq!(
-            clean_exec(r#"app --arg="value" %U"#),
-            r#"app --arg="value""#
-        );
-    }
-
-    #[test]
-    fn handles_plain_exec() {
-        assert_eq!(clean_exec("firefox"), "firefox");
-    }
 }

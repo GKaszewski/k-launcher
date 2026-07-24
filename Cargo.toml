@@ -2,10 +2,12 @@
 members = [
     "crates/k-launcher",
     "crates/k-launcher-config",
+    "crates/k-launcher-domain",
     "crates/k-launcher-kernel",
     "crates/k-launcher-os-bridge",
     "crates/k-launcher-plugin-host",
     "crates/k-launcher-ui",
+    "crates/k-launcher-ui-core",
     "crates/plugins/plugin-apps",
     "crates/plugins/plugin-calc",
     "crates/plugins/plugin-cmd",
@@ -16,10 +18,12 @@ members = [
 default-members = [
     "crates/k-launcher",
     "crates/k-launcher-config",
+    "crates/k-launcher-domain",
     "crates/k-launcher-kernel",
     "crates/k-launcher-os-bridge",
     "crates/k-launcher-plugin-host",
     "crates/k-launcher-ui",
+    "crates/k-launcher-ui-core",
     "crates/plugins/plugin-apps",
     "crates/plugins/plugin-calc",
     "crates/plugins/plugin-cmd",
@@ -29,13 +33,27 @@ default-members = [
 resolver = "2"
 
 [workspace.dependencies]
+k-launcher = { path = "crates/k-launcher" }
+k-launcher-config = { path = "crates/k-launcher-config" }
+k-launcher-domain = { path = "crates/k-launcher-domain" }
+k-launcher-kernel = { path = "crates/k-launcher-kernel" }
+k-launcher-os-bridge = { path = "crates/k-launcher-os-bridge" }
+k-launcher-plugin-host = { path = "crates/k-launcher-plugin-host" }
+k-launcher-ui = { path = "crates/k-launcher-ui" }
+k-launcher-ui-core = { path = "crates/k-launcher-ui-core" }
+k-launcher-ui-egui = { path = "crates/k-launcher-ui-egui" }
+plugin-apps = { path = "crates/plugins/plugin-apps" }
+plugin-calc = { path = "crates/plugins/plugin-calc" }
+plugin-cmd = { path = "crates/plugins/plugin-cmd" }
+plugin-files = { path = "crates/plugins/plugin-files" }
+plugin-url = { path = "crates/plugins/plugin-url" }
+
 async-trait = "0.1"
-bincode = { version = "2", features = ["serde"] }
 dirs = "6.0"
-futures = "0.3"
-iced = { version = "0.14", default-features = false, features = ["image", "svg", "tokio", "tiny-skia", "wayland", "x11", "crisp", "web-colors", "thread-pool"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
-toml = "1.0"
+thiserror = "2"
+parking_lot = "0.12"
 tracing = "0.1"
+ctrlc = "3"

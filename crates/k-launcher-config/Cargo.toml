@@ -1,6 +1,6 @@
 [package]
 name = "k-launcher-config"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [lib]
@@ -9,5 +9,11 @@ path = "src/lib.rs"
 
 [dependencies]
 dirs = { workspace = true }
+k-launcher-domain = { workspace = true }
 serde = { workspace = true }
-toml = { workspace = true }
+thiserror = { workspace = true }
+toml = "1.0"
+tracing = { workspace = true }
+
+[dev-dependencies]
+toml = "1.0"

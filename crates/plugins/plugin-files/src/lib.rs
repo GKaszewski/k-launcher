@@ -2,8 +2,13 @@ mod platform;
 
 use std::path::Path;
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_domain::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
+
+const MAX_FILE_RESULTS: usize = 20;
+const RESULT_SCORE: u32 = 50;
 
 pub struct FilesPlugin;
 
@@ -70,7 +75,7 @@ impl Plugin for FilesPlugin {
                     .map(|n| n.to_lowercase().starts_with(&prefix))
                     .unwrap_or(false)
             })
-            .take(20)
+            .take(MAX_FILE_RESULTS)
             .map(|entry| {
                 let full_path = entry.path();
                 let name = entry.file_name().to_string_lossy().to_string();
@@ -80,30 +85,12 @@ impl Plugin for FilesPlugin {
                 SearchResult {
                     id: ResultId::new(&path_str),
                     title: ResultTitle::new(title),
-                    description: Some(path_str.clone()),
+                    description: Some(Arc::from(path_str.as_str())),
                     icon: None,
-                    score: Score::new(50),
+                    score: Score::new(RESULT_SCORE),
                     action: LaunchAction::OpenPath(path_str),
                 }
             })
             .collect()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn files_ignores_non_path_query() {
-        let p = FilesPlugin::new();
-        assert!(p.search("firefox").await.is_empty());
-    }
-
-    #[tokio::test]
-    async fn files_handles_root() {
-        let p = FilesPlugin::new();
-        let results = p.search("/").await;
-        assert!(!results.is_empty());
     }
 }

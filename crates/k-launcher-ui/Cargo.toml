@@ -1,6 +1,6 @@
 [package]
 name = "k-launcher-ui"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [lib]
@@ -8,8 +8,10 @@ name = "k_launcher_ui"
 path = "src/lib.rs"
 
 [dependencies]
-iced = { workspace = true }
-k-launcher-config = { path = "../k-launcher-config" }
-k-launcher-kernel = { path = "../k-launcher-kernel" }
-k-launcher-os-bridge = { path = "../k-launcher-os-bridge" }
+iced = { version = "0.14", default-features = false, features = ["image", "svg", "tokio", "tiny-skia", "wayland", "x11", "crisp", "web-colors", "thread-pool"] }
+k-launcher-config = { workspace = true }
+k-launcher-domain = { workspace = true }
+k-launcher-kernel = { workspace = true }
+k-launcher-os-bridge = { workspace = true }
+k-launcher-ui-core = { workspace = true }
 tokio = { workspace = true }

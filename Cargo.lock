@@ -338,6 +338,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block2"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5"
+dependencies = [
+ "objc2 0.6.4",
+]
+
+[[package]]
 name = "built"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -715,6 +724,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e162d0c2e2068eb736b71e5597eff0b9944e6b973cd9f37b6a288ab9bf20e300"
 
 [[package]]
+name = "ctrlc"
+version = "3.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0b1fab2ae45819af2d0731d60f2afe17227ebb1a1538a236da84c93e9a60162"
+dependencies = [
+ "dispatch2",
+ "nix 0.31.2",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -769,6 +789,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0e367e4e7da84520dedcac1901e4da967309406d1e51017ae1abfb97adbd38"
 dependencies = [
  "bitflags 2.11.0",
+ "block2 0.6.2",
+ "libc",
  "objc2 0.6.4",
 ]
 
@@ -1102,7 +1124,7 @@ version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75ae8b5984a4863d8a32109a848d038bd6d914f20f010cc141375f7a183c41cf"
 dependencies = [
- "nix",
+ "nix 0.29.0",
 ]
 
 [[package]]
@@ -2038,11 +2060,12 @@ dependencies = [
 
 [[package]]
 name = "k-launcher"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "ctrlc",
  "dirs",
- "iced",
  "k-launcher-config",
+ "k-launcher-domain",
  "k-launcher-kernel",
  "k-launcher-os-bridge",
  "k-launcher-plugin-host",
@@ -2052,6 +2075,7 @@ dependencies = [
  "plugin-calc",
  "plugin-cmd",
  "plugin-files",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "tracing-appender",
@@ -2060,19 +2084,33 @@ dependencies = [
 
 [[package]]
 name = "k-launcher-config"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs",
+ "k-launcher-domain",
  "serde",
+ "thiserror 2.0.18",
  "toml",
+ "tracing",
+]
+
+[[package]]
+name = "k-launcher-domain"
+version = "0.2.0"
+dependencies = [
+ "async-trait",
+ "serde",
 ]
 
 [[package]]
 name = "k-launcher-kernel"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "futures",
+ "k-launcher-domain",
+ "plugin-calc",
+ "plugin-cmd",
  "serde",
  "tokio",
  "tracing",
@@ -2080,44 +2118,60 @@ dependencies = [
 
 [[package]]
 name = "k-launcher-os-bridge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "k-launcher-kernel",
+ "k-launcher-domain",
  "libc",
+ "tracing",
 ]
 
 [[package]]
 name = "k-launcher-plugin-host"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
- "k-launcher-kernel",
+ "k-launcher-domain",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "k-launcher-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "iced",
  "k-launcher-config",
+ "k-launcher-domain",
  "k-launcher-kernel",
  "k-launcher-os-bridge",
+ "k-launcher-ui-core",
  "tokio",
 ]
 
 [[package]]
+name = "k-launcher-ui-core"
+version = "0.2.0"
+dependencies = [
+ "k-launcher-config",
+ "k-launcher-domain",
+ "k-launcher-kernel",
+]
+
+[[package]]
 name = "k-launcher-ui-egui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "eframe",
  "egui",
  "k-launcher-config",
+ "k-launcher-domain",
  "k-launcher-kernel",
+ "k-launcher-ui-core",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -2539,6 +2593,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nix"
+version = "0.31.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6d0705320c1e6ba1d912b5e37cf18071b6c2e9b7fa8215a1e8a7651966f5d3"
+dependencies = [
+ "bitflags 2.11.0",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2708,7 +2774,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4e89ad9e3d7d297152b17d39ed92cd50ca8063a89a9fa569046d41568891eff"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "libc",
  "objc2 0.5.2",
  "objc2-core-data",
@@ -2737,7 +2803,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74dd3b56391c7a0596a295029734d3c1c5e7e510a4cb30245f8221ccea96b009"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-core-location",
  "objc2-foundation 0.2.2",
@@ -2749,7 +2815,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5ff520e9c33812fd374d8deecef01d4a840e7b41862d849513de77e44aa4889"
 dependencies = [
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
 ]
@@ -2761,7 +2827,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "617fbf49e071c178c0b24c080767db52958f716d9eabdf0890523aeae54773ef"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
 ]
@@ -2796,7 +2862,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55260963a527c99f1819c4f8e3b47fe04f9650694ef348ffd2227e8196d34c80"
 dependencies = [
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
  "objc2-metal",
@@ -2808,7 +2874,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "000cfee34e683244f284252ee206a27953279d370e309649dc3ee317b37e5781"
 dependencies = [
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-contacts",
  "objc2-foundation 0.2.2",
@@ -2827,7 +2893,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee638a5da3799329310ad4cfa62fbf045d5f56e3ef5ba4149e7452dcf89d5a8"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "dispatch",
  "libc",
  "objc2 0.5.2",
@@ -2861,7 +2927,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a1ae721c5e35be65f01a03b6d2ac13a54cb4fa70d8a5da293d7b0020261398"
 dependencies = [
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-app-kit 0.2.2",
  "objc2-foundation 0.2.2",
@@ -2874,7 +2940,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd0cba1276f6023976a406a14ffa85e1fdd19df6b0f737b063b95f6c8c7aadd6"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
 ]
@@ -2886,7 +2952,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e42bee7bff906b14b167da2bac5efe6b6a07e6f7c0a21a7308d40c960242dc7a"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
  "objc2-metal",
@@ -2921,7 +2987,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8bb46798b20cd6b91cbd113524c490f1686f4c4e8f49502431415f3512e2b6f"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-cloud-kit",
  "objc2-core-data",
@@ -2941,7 +3007,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44fa5f9748dbfe1ca6c0b79ad20725a11eca7c2218bceb4b005cb1be26273bfe"
 dependencies = [
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-foundation 0.2.2",
 ]
@@ -2953,7 +3019,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76cfcbf642358e8689af64cee815d139339f3ed8ad05103ed5eaf73db8d84cb3"
 dependencies = [
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "objc2 0.5.2",
  "objc2-core-location",
  "objc2-foundation 0.2.2",
@@ -3102,14 +3168,15 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plugin-apps"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "bincode",
  "dirs",
- "k-launcher-kernel",
+ "k-launcher-domain",
  "linicon",
  "nucleo-matcher",
+ "parking_lot",
  "serde",
  "serde_json",
  "tokio",
@@ -3119,35 +3186,35 @@ dependencies = [
 
 [[package]]
 name = "plugin-calc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "evalexpr",
- "k-launcher-kernel",
+ "k-launcher-domain",
  "tokio",
 ]
 
 [[package]]
 name = "plugin-cmd"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
- "k-launcher-kernel",
+ "k-launcher-domain",
  "tokio",
 ]
 
 [[package]]
 name = "plugin-files"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
- "k-launcher-kernel",
+ "k-launcher-domain",
  "tokio",
 ]
 
 [[package]]
 name = "plugin-url"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -5300,7 +5367,7 @@ dependencies = [
  "android-activity",
  "atomic-waker",
  "bitflags 2.11.0",
- "block2",
+ "block2 0.5.1",
  "bytemuck",
  "calloop 0.13.0",
  "cfg_aliases",

@@ -1,0 +1,9 @@
+[package]
+name = "k-launcher-ui-core"
+version = "0.2.0"
+edition = "2024"
+
+[dependencies]
+k-launcher-config = { workspace = true }
+k-launcher-domain = { workspace = true }
+k-launcher-kernel = { workspace = true }

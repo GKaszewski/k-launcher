@@ -1,169 +1,153 @@
 use std::sync::{Arc, mpsc};
 
-use egui::{Color32, Key, ViewportCommand};
-use k_launcher_kernel::{AppLauncher, SearchEngine, SearchResult};
+use egui::ViewportCommand;
+use k_launcher_config::AppearanceCfg;
+use k_launcher_domain::AppLauncher;
+use k_launcher_domain::SearchResult;
+use k_launcher_kernel::Kernel;
+use k_launcher_ui_core::{Action, Effect, LauncherState};
 
-const BG: Color32 = Color32::from_rgba_premultiplied(20, 20, 30, 230);
-const BORDER_COLOR: Color32 = Color32::from_rgb(229, 125, 33);
-const SELECTED_BG: Color32 = Color32::from_rgba_premultiplied(0, 100, 140, 180);
-const DIM_TEXT: Color32 = Color32::from_rgb(180, 185, 200);
+use crate::input::{InputAction, process_input};
+use crate::render;
+use crate::style;
 
 pub struct KLauncherApp {
-    engine: Arc<dyn SearchEngine>,
-    launcher: Arc<dyn AppLauncher>,
-    query: String,
-    results: Vec<SearchResult>,
-    selected: usize,
+    pub(crate) inner: LauncherState,
     rt: tokio::runtime::Handle,
     result_tx: mpsc::SyncSender<Vec<SearchResult>>,
-    result_rx: mpsc::Receiver<Vec<SearchResult>>,
+    pub(crate) result_rx: mpsc::Receiver<Vec<SearchResult>>,
 }
 
 impl KLauncherApp {
     fn new(
-        engine: Arc<dyn SearchEngine>,
+        engine: Arc<Kernel>,
         launcher: Arc<dyn AppLauncher>,
         rt: tokio::runtime::Handle,
+        cfg: AppearanceCfg,
     ) -> Self {
-        let (result_tx, result_rx) = mpsc::sync_channel(4);
-        Self {
-            engine,
-            launcher,
-            query: String::new(),
-            results: vec![],
-            selected: 0,
+        const RESULT_CHANNEL_CAPACITY: usize = 4;
+        let (result_tx, result_rx) = mpsc::sync_channel(RESULT_CHANNEL_CAPACITY);
+        let mut inner = LauncherState::new(launcher, cfg, 0);
+
+        let effect = inner.handle(Action::EngineReady(engine));
+
+        let app = Self {
+            inner,
             rt,
             result_tx,
             result_rx,
-        }
+        };
+
+        app.execute_effect(effect);
+        app
     }
 
     fn trigger_search(&self, query: String) {
-        let engine = self.engine.clone();
+        let Some(engine) = self.inner.engine().cloned() else {
+            return;
+        };
         let tx = self.result_tx.clone();
         self.rt.spawn(async move {
             let results = engine.search(&query).await;
-            let _ = tx.send(results);
+            if let Err(e) = tx.send(results) {
+                tracing::warn!("search result channel closed: {e}");
+            }
         });
+    }
+
+    fn poll_search_results(&mut self) {
+        if let Ok(results) = self.result_rx.try_recv() {
+            self.inner.handle(Action::ResultsReady {
+                epoch: self.inner.search_epoch(),
+                results,
+            });
+        }
+    }
+
+    fn execute_effect(&self, effect: Effect) {
+        match effect {
+            Effect::TriggerSearch(q) => self.trigger_search(q),
+            Effect::SearchAfterDebounce { query, .. } => self.trigger_search(query),
+            _ => {}
+        }
+    }
+
+    fn handle_action(&mut self, action: Action, ctx: &egui::Context) {
+        let effect = self.inner.handle(action);
+        match effect {
+            Effect::LaunchAndExit(action) => {
+                self.inner.launcher().execute(&action);
+                ctx.send_viewport_cmd(ViewportCommand::Close);
+            }
+            Effect::Exit => {
+                ctx.send_viewport_cmd(ViewportCommand::Close);
+            }
+            other => self.execute_effect(other),
+        }
+    }
+
+    fn render_panel(&mut self, ctx: &egui::Context) {
+        let cfg = self.inner.cfg().clone();
+        egui::CentralPanel::default()
+            .frame(style::outer_frame(&cfg))
+            .show(ctx, |ui| {
+                let query = self.inner.query().to_string();
+                let mut query_buf = query;
+                let response = render::render_search_bar(ui, &mut query_buf, &cfg);
+
+                if response.changed() {
+                    self.handle_action(Action::QueryChanged(query_buf), ctx);
+                }
+
+                response.request_focus();
+                ui.add_space(8.0);
+
+                if self.inner.is_loading() {
+                    render::render_loading_state(ui, &cfg);
+                    return;
+                }
+
+                if self.inner.results().is_empty() && !self.inner.query().is_empty() {
+                    render::render_empty_state(ui, &cfg);
+                    return;
+                }
+
+                render::render_result_list(ui, self.inner.results(), self.inner.selected(), &cfg);
+            });
     }
 }
 
 impl eframe::App for KLauncherApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(results) = self.result_rx.try_recv() {
-            self.results = results;
-        }
+        self.poll_search_results();
 
-        let mut close = false;
-        let mut launch_selected = false;
-
-        ctx.input(|i| {
-            if i.key_pressed(Key::Escape) {
-                close = true;
-            }
-            if i.key_pressed(Key::Enter) {
-                launch_selected = true;
-            }
-            if i.key_pressed(Key::ArrowDown) {
-                let len = self.results.len();
-                if len > 0 {
-                    self.selected = (self.selected + 1).min(len - 1);
-                }
-            }
-            if i.key_pressed(Key::ArrowUp) && self.selected > 0 {
-                self.selected -= 1;
-            }
-        });
-
-        if close {
-            ctx.send_viewport_cmd(ViewportCommand::Close);
-            return;
-        }
-
-        if launch_selected {
-            if let Some(result) = self.results.get(self.selected) {
-                self.engine.on_selected(&result.id);
-                self.launcher.execute(&result.action);
-            }
-            ctx.send_viewport_cmd(ViewportCommand::Close);
-            return;
-        }
-
-        let frame = egui::Frame::new()
-            .fill(BG)
-            .stroke(egui::Stroke::new(1.0, BORDER_COLOR))
-            .inner_margin(egui::Margin::same(12))
-            .corner_radius(egui::CornerRadius::same(8));
-
-        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
-            let response = ui.add_sized(
-                [ui.available_width(), 36.0],
-                egui::TextEdit::singleline(&mut self.query)
-                    .hint_text("Search...")
-                    .font(egui::TextStyle::Heading),
-            );
-
-            if response.changed() {
-                self.selected = 0;
-                self.trigger_search(self.query.clone());
-            }
-
-            response.request_focus();
-
-            ui.add_space(8.0);
-
-            if self.results.is_empty() && !self.query.is_empty() {
-                ui.add_space(20.0);
-                ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                    ui.colored_label(DIM_TEXT, "No results");
-                });
+        match process_input(ctx) {
+            InputAction::Close => {
+                self.handle_action(Action::Exit, ctx);
                 return;
             }
+            InputAction::LaunchSelected => {
+                self.handle_action(Action::LaunchSelected, ctx);
+                return;
+            }
+            InputAction::MoveDown => {
+                self.inner.handle(Action::MoveDown);
+            }
+            InputAction::MoveUp => {
+                self.inner.handle(Action::MoveUp);
+            }
+            InputAction::None => {}
+        }
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                for (i, result) in self.results.iter().enumerate() {
-                    let is_selected = i == self.selected;
-                    let bg = if is_selected {
-                        SELECTED_BG
-                    } else {
-                        Color32::TRANSPARENT
-                    };
-
-                    let row_frame = egui::Frame::new()
-                        .fill(bg)
-                        .inner_margin(egui::Margin {
-                            left: 8,
-                            right: 8,
-                            top: 6,
-                            bottom: 6,
-                        })
-                        .corner_radius(egui::CornerRadius::same(4));
-
-                    row_frame.show(ui, |ui| {
-                        ui.set_width(ui.available_width());
-                        ui.horizontal(|ui| {
-                            ui.add_space(8.0);
-                            ui.vertical(|ui| {
-                                ui.label(result.title.as_str());
-                                if let Some(desc) = &result.description {
-                                    ui.colored_label(DIM_TEXT, desc);
-                                }
-                            });
-                        });
-                    });
-
-                    ui.add_space(2.0);
-                }
-            });
-        });
+        self.render_panel(ctx);
     }
 }
 
 pub fn run(
-    engine: Arc<dyn SearchEngine>,
+    engine: Arc<Kernel>,
     launcher: Arc<dyn AppLauncher>,
     window_cfg: &k_launcher_config::WindowCfg,
+    appearance_cfg: AppearanceCfg,
 ) -> Result<(), eframe::Error> {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let handle = rt.handle().clone();
@@ -179,8 +163,15 @@ pub fn run(
     };
 
     eframe::run_native(
-        "K-Launcher",
+        k_launcher_domain::constants::APP_TITLE,
         options,
-        Box::new(move |_cc| Ok(Box::new(KLauncherApp::new(engine, launcher, handle)))),
+        Box::new(move |_cc| {
+            Ok(Box::new(KLauncherApp::new(
+                engine,
+                launcher,
+                handle,
+                appearance_cfg,
+            )))
+        }),
     )
 }

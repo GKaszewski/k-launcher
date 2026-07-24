@@ -1,0 +1,168 @@
+.TH K\-LAUNCHER 1 "2026-07-24" "k-launcher 0.2.0" "User Commands"
+.SH NAME
+k\-launcher \- Wayland command palette launcher
+.SH SYNOPSIS
+.B k\-launcher
+.RB [ \-\-version ]
+.SH DESCRIPTION
+.B k\-launcher
+is a keyboard-driven application launcher for Wayland desktops. It provides
+fuzzy search over installed applications, a calculator, a file browser, and
+a shell command runner, all accessible from a single search bar.
+.PP
+Results are ranked by a combination of fuzzy match score and frecency (how
+frequently and recently an application was launched). On an empty query, the
+most frecent applications are displayed.
+.SH OPTIONS
+.TP
+.BR \-\-version ", " \-V
+Print version information and exit.
+.SH USAGE
+.TP
+.B Type text
+Fuzzy-search installed applications by name or keywords.
+.TP
+.B > command
+Run a shell command in a terminal emulator.
+.TP
+.B = expression
+Evaluate a math expression. Supports +, \-, *, /, parentheses, and functions
+such as sqrt, sin, cos, tan, ln, log2, log10, abs, ceil, floor, round.
+Constants: pi, e. Result is copied to clipboard on Enter.
+.TP
+.B ~/path \fRor\fB /path
+Browse the filesystem. Tab-like prefix matching on directory entries.
+.SH KEYBOARD
+.TP
+.B Enter
+Launch the selected result (or copy to clipboard for calculator results).
+.TP
+.B Escape
+Close the launcher.
+.TP
+.B Arrow Up / Arrow Down
+Navigate through results.
+.SH CONFIGURATION
+Configuration is stored in
+.IR ~/.config/k\-launcher/config.toml .
+If the file is absent, sensible defaults are used. A parse error is logged
+as a warning and defaults are used.
+.PP
+See
+.I config.example.toml
+in the source repository for all available options.
+.SS [window]
+.TP
+.BR width " (float, default: 600.0)"
+Window width in pixels.
+.TP
+.BR height " (float, default: 400.0)"
+Window height in pixels.
+.TP
+.BR decorations " (bool, default: false)"
+Show window decorations.
+.TP
+.BR transparent " (bool, default: true)"
+Enable window transparency.
+.SS [appearance]
+.TP
+.BR background_rgba " (array, default: [20, 20, 30, 0.9])"
+Background color as [R, G, B, A] where RGB are 0\-255 and A is 0.0\-1.0.
+.TP
+.BR border_rgba " (array, default: [229, 125, 33, 1.0])"
+Border color.
+.TP
+.BR placeholder " (string)"
+Search bar placeholder text.
+.TP
+.BR icon_size " (float, default: 24.0)"
+Application icon size in pixels.
+.SS [search]
+.TP
+.BR max_results " (integer, default: 8)"
+Maximum number of results to display.
+.TP
+.BR debounce_ms " (integer, default: 50)"
+Milliseconds to wait after last keystroke before searching.
+.TP
+.BR frecency_compact_threshold " (integer, default: 50)"
+Number of frecency log entries before compacting to a snapshot.
+.SS [plugins]
+.TP
+.BR calc " (bool, default: true)"
+Enable the calculator plugin.
+.TP
+.BR cmd " (bool, default: true)"
+Enable the shell command plugin.
+.TP
+.BR files " (bool, default: true)"
+Enable the file browser plugin.
+.TP
+.BR apps " (bool, default: true)"
+Enable the application search plugin.
+.SS [[plugins.external]]
+External plugins are executables that communicate via JSON over stdin/stdout.
+.TP
+.BR name " (string, required)"
+Display name for the plugin.
+.TP
+.BR path " (string, required)"
+Path to the plugin executable.
+.TP
+.BR args " (array of strings, default: [])"
+Arguments to pass to the plugin.
+.TP
+.BR timeout_secs " (integer, default: 5)"
+Search timeout in seconds per query.
+.SS [logging]
+.TP
+.BR max_log_files " (integer, default: 7)"
+Number of daily log files to keep.
+.SS [terminal]
+.TP
+.BR cmd " (string, optional)"
+Terminal emulator command for
+.B > command
+execution. If unset, detected from
+.BR $TERM_CMD ,
+.BR $TERMINAL ,
+or PATH (foot, kitty, alacritty, wezterm, konsole, xterm).
+.SH FILES
+.TP
+.I ~/.config/k\-launcher/config.toml
+User configuration file.
+.TP
+.I ~/.local/share/k\-launcher/frecency.json
+Frecency snapshot (launch history).
+.TP
+.I ~/.local/share/k\-launcher/frecency.log
+Frecency append-only log (compacted periodically).
+.TP
+.I ~/.local/share/k\-launcher/logs/
+Daily log files.
+.TP
+.I ~/.cache/k\-launcher/apps.bin
+Cached desktop entry data (bincode).
+.SH PLUGINS
+See
+.I docs/plugin\-development.md
+in the source repository for the external plugin protocol and a guide to
+writing built-in plugins.
+.SH SIGNALS
+.TP
+.BR SIGINT ", " SIGTERM
+Graceful shutdown. Frecency data is compacted before exit.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal exit.
+.TP
+.B 1
+Fatal error (UI initialization failure).
+.SH AUTHORS
+Written by Gabriel Kaszewski.
+.SH LICENSE
+MIT License. See LICENSE in the source repository.
+.SH SEE ALSO
+.BR wl\-copy (1),
+.BR xdg\-open (1)

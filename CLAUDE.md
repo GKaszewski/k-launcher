@@ -39,12 +39,12 @@
 
 ## 4. Layer Definitions
 
-| Layer              | Responsibility                                | Allowed Dependencies |
-| ------------------ | --------------------------------------------- | -------------------- |
-| **Domain**         | Pure Business Logic, Entities, Value Objects. | None (Pure Rust)     |
-| **Application**    | Use Cases, Orchestration, Trait definitions.  | Domain               |
-| **Infrastructure** | Trait implementations (DB, HTTP clients).     | Domain, Application  |
-| **Main/API**       | Entry point, Wire-up/DI, Routing.             | All of the above     |
+| Layer              | Crates                                          | Responsibility                                | Allowed Dependencies |
+| ------------------ | ----------------------------------------------- | --------------------------------------------- | -------------------- |
+| **Domain**         | `k-launcher-domain`                             | Pure value types, newtypes, constants, port traits (Plugin, AppLauncher). | None (Pure Rust + serde + async-trait) |
+| **Application**    | `k-launcher-kernel`                              | Kernel orchestrator. | Domain |
+| **Infrastructure** | `k-launcher-ui`, `k-launcher-ui-egui`, `k-launcher-ui-core`, `k-launcher-os-bridge`, `k-launcher-plugin-host`, `k-launcher-config`, all `plugin-*` crates | Trait implementations, UI, config, plugins. | Domain, Application |
+| **Main**           | `k-launcher`                                    | Entry point, DI wiring, logging.              | All of the above |
 
 ---
 

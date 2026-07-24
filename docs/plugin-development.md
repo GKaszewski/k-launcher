@@ -35,6 +35,7 @@ The process is kept alive between queries — do **not** exit after each respons
 | `"type"` | Extra fields | Behavior |
 |----------|-------------|---------|
 | `SpawnProcess` | `"cmd"` | Launch process directly |
+| `SpawnInTerminal` | `"cmd"` | Run command in terminal emulator |
 | `CopyToClipboard` | `"text"` | Copy text to clipboard |
 | `OpenPath` | `"path"` | Open file/dir with xdg-open |
 
@@ -53,7 +54,8 @@ In `~/.config/k-launcher/config.toml`:
 [[plugins.external]]
 name = "my-plugin"
 path = "/usr/lib/k-launcher/plugins/my-plugin"
-args = []        # optional
+args = []           # optional
+timeout_secs = 5    # optional, default 5
 ```
 
 Multiple `[[plugins.external]]` blocks are supported.
@@ -96,7 +98,7 @@ for line in sys.stdin:
 
 ## Built-in Plugins (compiled-in)
 
-Built-in plugins implement the `Plugin` trait from `k-launcher-kernel` as Rust crates compiled into the binary.
+Built-in plugins implement the `Plugin` trait from `k-launcher-domain` as Rust crates compiled into the binary.
 
 ### 1. Create a new crate in the workspace
 
@@ -120,7 +122,7 @@ members = [
 
 ```toml
 [dependencies]
-k-launcher-kernel = { path = "../../k-launcher-kernel" }
+k-launcher-domain = { workspace = true }
 async-trait = "0.1"
 ```
 
@@ -129,8 +131,10 @@ async-trait = "0.1"
 `crates/plugins/plugin-hello/src/lib.rs`:
 
 ```rust
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use k_launcher_kernel::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
+use k_launcher_domain::{LaunchAction, Plugin, ResultId, ResultTitle, Score, SearchResult};
 
 pub struct HelloPlugin;
 
@@ -154,11 +158,10 @@ impl Plugin for HelloPlugin {
         vec![SearchResult {
             id: ResultId::new("hello:world"),
             title: ResultTitle::new("Hello, World!"),
-            description: Some("A greeting from the hello plugin".to_string()),
+            description: Some(Arc::from("A greeting from the hello plugin")),
             icon: None,
             score: Score::new(80),
             action: LaunchAction::CopyToClipboard("Hello, World!".to_string()),
-            on_select: None,
         }]
     }
 }
@@ -192,11 +195,10 @@ plugin-hello = { path = "../plugins/plugin-hello" }
 |-------|------|-------------|
 | `id` | `ResultId` | Unique stable ID (e.g. `"apps:firefox"`) |
 | `title` | `ResultTitle` | Primary display text |
-| `description` | `Option<String>` | Secondary line shown below title |
-| `icon` | `Option<String>` | Icon name or path (currently unused in renderer) |
+| `description` | `Option<Arc<str>>` | Secondary line shown below title |
+| `icon` | `Option<Arc<str>>` | Icon name or path (currently unused in renderer) |
 | `score` | `Score(u32)` | Sort priority — higher wins |
 | `action` | `LaunchAction` | What happens on `Enter` |
-| `on_select` | `Option<Arc<dyn Fn()>>` | Optional side-effect on selection (e.g. frecency bump) |
 
 ### `LaunchAction` Variants
 
@@ -206,7 +208,6 @@ plugin-hello = { path = "../plugins/plugin-hello" }
 | `SpawnInTerminal(String)` | Run command inside a terminal emulator |
 | `OpenPath(String)` | Open a file or directory with `xdg-open` |
 | `CopyToClipboard(String)` | Copy text to clipboard |
-| `Custom(Arc<dyn Fn()>)` | Arbitrary closure |
 
 ### Scoring Guidance
 
