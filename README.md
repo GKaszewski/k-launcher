@@ -77,6 +77,29 @@ timeout_secs = 5
 
 See [Plugin Development](docs/plugin-development.md) for the full protocol.
 
+## Architecture
+
+Clean Architecture (Domain → Application → Infrastructure → Main):
+
+```
+domain              — pure value types (ResultId, ResultTitle, Score, LaunchAction, SearchResult),
+                      port traits (Plugin, AppLauncher), shared constants
+kernel              — application use case: Kernel orchestrator (fan-out search, sort, truncate)
+config              — TOML config loading with typed errors (ConfigError)
+ui-core             — framework-agnostic UI state machine (LauncherState, Action, Effect)
+ui                  — iced 0.14 rendering adapter
+ui-egui             — egui rendering adapter (optional)
+os-bridge           — UnixAppLauncher (process spawning, terminal detection, clipboard)
+plugin-host         — ExternalPlugin (JSON stdin/stdout protocol with typed PluginError)
+plugins/
+  plugin-apps         — XDG .desktop search, frecency ranking, nucleo fuzzy matching, bincode cache
+  plugin-calc         — evalexpr math evaluator (supports sqrt, sin, cos, ln, pi, e, etc.)
+  plugin-cmd          — shell command runner (> prefix, launches in terminal)
+  plugin-files        — filesystem browser (/ and ~/ paths)
+  plugin-url          — URL detection (external binary, tests the external plugin protocol)
+k-launcher          — entry point: DI wiring, logging, signal handling
+```
+
 ## Docs
 
 - [Installation](docs/install.md)

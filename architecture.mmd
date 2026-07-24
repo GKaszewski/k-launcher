@@ -1,0 +1,81 @@
+---
+title: k-launcher — Clean Architecture
+---
+graph TB
+    subgraph Main["Main (Composition Root)"]
+        BIN["k-launcher<br/><i>DI wiring, logging,<br/>signal handling, --version</i>"]
+        BIN_EGUI["k-launcher-egui<br/><i>Optional egui binary</i>"]
+    end
+
+    subgraph Application["Application Layer"]
+        KERNEL["kernel<br/><i>Kernel orchestrator</i><br/>Fan-out search, sort by score,<br/>truncate to max_results,<br/>catch_unwind per plugin"]
+    end
+
+    subgraph Domain["Domain Layer (0 external deps)"]
+        direction TB
+        subgraph Types["Value Types"]
+            VT_ID["ResultId(String)"]
+            VT_TITLE["ResultTitle(String)"]
+            VT_SCORE["Score(u32)"]
+            VT_ACTION["LaunchAction<br/><i>SpawnProcess, SpawnInTerminal,<br/>OpenPath, CopyToClipboard</i>"]
+            VT_RESULT["SearchResult<br/><i>id, title, description,<br/>icon, score, action</i>"]
+        end
+        subgraph Ports["Port Traits"]
+            P_PLUGIN["Plugin<br/><i>name, search, on_selected,<br/>shutdown</i>"]
+            P_LAUNCHER["AppLauncher<br/><i>execute(LaunchAction)</i>"]
+        end
+        CONSTANTS["constants<br/><i>APP_NAME, APP_TITLE,<br/>CONFIG_FILENAME, LOG_*,<br/>FRECENCY_SNAPSHOT_FILENAME</i>"]
+    end
+
+    subgraph Infrastructure["Infrastructure Layer"]
+        direction TB
+        subgraph UI["UI"]
+            UI_CORE["ui-core<br/><i>LauncherState, Action, Effect</i><br/>Framework-agnostic state machine"]
+            UI_ICED["ui (iced)<br/><i>style, view, update</i><br/>Rendering adapter"]
+            UI_EGUI["ui-egui<br/><i>style, input, render</i><br/>Rendering adapter"]
+        end
+        subgraph Plugins["Plugins (implement Plugin trait)"]
+            PL_APPS["plugin-apps<br/><i>XDG .desktop search</i><br/>Frecency, nucleo fuzzy,<br/>bincode cache"]
+            PL_CALC["plugin-calc<br/><i>evalexpr math</i><br/>sqrt, sin, cos, ln, pi, e"]
+            PL_CMD["plugin-cmd<br/><i>Shell commands</i><br/>> prefix → terminal"]
+            PL_FILES["plugin-files<br/><i>Filesystem browser</i><br/>/ and ~/ paths"]
+            PL_URL["plugin-url<br/><i>URL detection</i><br/>External binary (JSON protocol)"]
+        end
+        subgraph Platform["Platform"]
+            OS_BRIDGE["os-bridge<br/><i>UnixAppLauncher</i><br/>shell, terminal, spawn"]
+            PLUGIN_HOST["plugin-host<br/><i>ExternalPlugin</i><br/>JSON stdin/stdout protocol"]
+            CONFIG["config<br/><i>TOML loading</i><br/>ConfigError, try_load"]
+        end
+    end
+
+    %% Dependency arrows
+    BIN -->|"wires"| Application
+    BIN -->|"wires"| Infrastructure
+    BIN_EGUI -->|"wires"| Application
+    BIN_EGUI -->|"wires"| Infrastructure
+
+    Application -->|"depends on"| Domain
+
+    UI_ICED -->|"delegates to"| UI_CORE
+    UI_EGUI -->|"delegates to"| UI_CORE
+    UI_CORE -->|"uses"| KERNEL
+
+    Plugins -.->|"implements"| P_PLUGIN
+    OS_BRIDGE -.->|"implements"| P_LAUNCHER
+    PLUGIN_HOST -.->|"implements"| P_PLUGIN
+
+    KERNEL -->|"fan-out"| P_PLUGIN
+
+    %% Key data flows
+    UI_CORE ===|"Action → Effect"| KERNEL
+    PL_APPS ===|"frecency log"| CONSTANTS
+
+    classDef domain fill:#1a1a2e,stroke:#e94560,color:#fff
+    classDef app fill:#16213e,stroke:#0f3460,color:#fff
+    classDef infra fill:#0f3460,stroke:#533483,color:#fff
+    classDef binary fill:#533483,stroke:#e94560,color:#fff
+
+    class Domain domain
+    class Application app
+    class Infrastructure infra
+    class Main binary
