@@ -113,9 +113,12 @@ fn result_row<'a>(
     };
 
     container(
-        row![result_icon(&result.icon, cfg), title_column(result, cfg)]
-            .spacing(style::CONTENT_SPACING)
-            .align_y(iced::Center),
+        row![
+            result_icon(&result.icon, cfg),
+            title_column(result, is_selected, cfg)
+        ]
+        .spacing(style::CONTENT_SPACING)
+        .align_y(iced::Center),
     )
     .width(Length::Fill)
     .padding(style::ROW_PADDING)
@@ -138,17 +141,35 @@ fn result_icon<'a>(icon_path: &'a Option<Arc<str>>, cfg: &AppearanceCfg) -> Elem
     }
 }
 
-fn title_column<'a>(result: &'a SearchResult, cfg: &AppearanceCfg) -> Element<'a, Message> {
+fn title_column<'a>(
+    result: &'a SearchResult,
+    is_selected: bool,
+    cfg: &AppearanceCfg,
+) -> Element<'a, Message> {
+    let title_color = if is_selected {
+        style::rgba(&cfg.selected_text_rgba)
+    } else {
+        style::rgba(&cfg.text_rgba)
+    };
+    let desc_color = if is_selected {
+        style::rgba(&cfg.selected_description_rgba)
+    } else {
+        style::rgba(&cfg.description_rgba)
+    };
+
     if let Some(desc) = &result.description {
         column![
-            text(result.title.as_str()).size(cfg.title_size),
-            text(desc.as_ref())
-                .size(cfg.desc_size)
-                .color(style::rgba(&cfg.description_rgba)),
+            text(result.title.as_str())
+                .size(cfg.title_size)
+                .color(title_color),
+            text(desc.as_ref()).size(cfg.desc_size).color(desc_color),
         ]
         .into()
     } else {
-        text(result.title.as_str()).size(cfg.title_size).into()
+        text(result.title.as_str())
+            .size(cfg.title_size)
+            .color(title_color)
+            .into()
     }
 }
 

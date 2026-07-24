@@ -43,14 +43,25 @@ pub fn render_result_list(
 }
 
 fn render_result_row(ui: &mut Ui, result: &SearchResult, is_selected: bool, cfg: &AppearanceCfg) {
+    let title_color = if is_selected {
+        to_color32(&cfg.selected_text_rgba)
+    } else {
+        to_color32(&cfg.text_rgba)
+    };
+    let desc_color = if is_selected {
+        to_color32(&cfg.selected_description_rgba)
+    } else {
+        to_color32(&cfg.description_rgba)
+    };
+
     style::result_row_frame(is_selected, cfg).show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.horizontal(|ui| {
             ui.add_space(8.0);
             ui.vertical(|ui| {
-                ui.label(result.title.as_str());
+                ui.colored_label(title_color, result.title.as_str());
                 if let Some(desc) = &result.description {
-                    ui.colored_label(to_color32(&cfg.description_rgba), desc.as_ref());
+                    ui.colored_label(desc_color, desc.as_ref());
                 }
             });
         });
